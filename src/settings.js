@@ -16,6 +16,7 @@ const fields = [
   ["volume", "number"],
   ["auto_advance", "checkbox"],
   ["autostart", "checkbox"],
+  ["return_to_corner_seconds", "number"],
 ];
 
 let soundPath = null;
