@@ -31,7 +31,8 @@ function loadInto(s) {
     if (type === "checkbox") el.checked = !!s[key];
     else el.value = s[key];
   });
-  document.getElementById("sound-path-display").textContent = soundPath || "Default tone";
+  document.getElementById("sound-path-display").textContent =
+    soundPath || "Default tone";
 }
 
 function readForm() {
@@ -41,7 +42,8 @@ function readForm() {
     if (!el) return;
     if (type === "checkbox") out[key] = el.checked;
     else if (type === "number") out[key] = parseFloat(el.value);
-    else if (type === "integer") out[key] = Math.round(parseFloat(el.value) || 0);
+    else if (type === "integer")
+      out[key] = Math.round(parseFloat(el.value) || 0);
     else out[key] = el.value;
   });
   out.sound_path = soundPath;

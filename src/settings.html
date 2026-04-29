@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com" />
   <title>Settings</title>
   <link rel="stylesheet" href="settings.css" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
+
 <body>
   <div class="settings">
     <h1><i class="ph ph-gear-six"></i> Settings</h1>
@@ -37,7 +40,8 @@
         </select>
       </label>
       <label class="toggle">Always on top <input type="checkbox" id="always_on_top" /></label>
-      <label>Return to corner after (seconds, 0 = never) <input type="number" min="0" max="3600" step="1" id="return_to_corner_seconds" /></label>
+      <label>Return to corner after (seconds, 0 = never) <input type="number" min="0" max="3600" step="1"
+          id="return_to_corner_seconds" /></label>
     </section>
 
     <section>
@@ -70,4 +74,5 @@
   </div>
   <script src="settings.js"></script>
 </body>
+
 </html>

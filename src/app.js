@@ -2,9 +2,9 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const { getCurrentWindow } = window.__TAURI__.window;
 
-const PHASE_WORK  = "work";
+const PHASE_WORK = "work";
 const PHASE_SHORT = "short";
-const PHASE_LONG  = "long";
+const PHASE_LONG = "long";
 
 let settings = null;
 let phase = PHASE_WORK;
@@ -25,7 +25,7 @@ function phaseDuration(p) {
 
 function phaseLabel(p) {
   if (p === PHASE_SHORT) return "Short Break";
-  if (p === PHASE_LONG)  return "Long Break";
+  if (p === PHASE_LONG) return "Long Break";
   return "Focus";
 }
 
@@ -40,7 +40,9 @@ function applyPhaseClass() {
 
 function fmt(sec) {
   const s = Math.max(0, Math.floor(sec));
-  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const m = Math.floor(s / 60)
+    .toString()
+    .padStart(2, "0");
   const ss = (s % 60).toString().padStart(2, "0");
   return `${m}:${ss}`;
 }
@@ -49,13 +51,21 @@ let isHovered = false;
 
 function applyVisibility() {
   if (!settings) return;
-  document.body.style.opacity = isHovered ? "1" : String(settings.idle_opacity ?? 0.5);
+  document.body.style.opacity = isHovered
+    ? "1"
+    : String(settings.idle_opacity ?? 0.5);
 }
 
 function setupHoverOpacity() {
   const c = $("container");
-  c.addEventListener("mouseenter", () => { isHovered = true; applyVisibility(); });
-  c.addEventListener("mouseleave", () => { isHovered = false; applyVisibility(); });
+  c.addEventListener("mouseenter", () => {
+    isHovered = true;
+    applyVisibility();
+  });
+  c.addEventListener("mouseleave", () => {
+    isHovered = false;
+    applyVisibility();
+  });
 }
 
 function render() {
@@ -105,7 +115,8 @@ function setPhase(p) {
 let audioCtx = null;
 function synthBeep(volume) {
   try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx =
+      audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const ctx = audioCtx;
     const playTone = (freq, startOffset, dur) => {
       const osc = ctx.createOscillator();
@@ -154,7 +165,8 @@ function handlePhaseEnd() {
   if (ended === PHASE_WORK) {
     workSessionsCompleted += 1;
     counter += 1;
-    const isLong = workSessionsCompleted % settings.sessions_before_long_break === 0;
+    const isLong =
+      workSessionsCompleted % settings.sessions_before_long_break === 0;
     next = isLong ? PHASE_LONG : PHASE_SHORT;
     title = "Focus done!";
     body = isLong ? "Long break time." : "Short break time.";
@@ -169,10 +181,14 @@ function handlePhaseEnd() {
 }
 
 function setupControls() {
-  $("play").addEventListener("click", () => (running ? pauseTimer() : startTimer()));
+  $("play").addEventListener("click", () =>
+    running ? pauseTimer() : startTimer(),
+  );
   $("reset").addEventListener("click", resetTimer);
   $("skip").addEventListener("click", () => handlePhaseEnd());
-  $("open-settings").addEventListener("click", () => invoke("open_settings_window"));
+  $("open-settings").addEventListener("click", () =>
+    invoke("open_settings_window"),
+  );
   document.querySelectorAll(".phase-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
@@ -207,7 +223,6 @@ async function animateToCorner() {
   const fps = 60;
   const steps = Math.round((duration / 1000) * fps);
   let step = 0;
-  isAnimating = true;
   returnCornerInterval = setInterval(async () => {
     try {
       step++;
