@@ -10,7 +10,7 @@ const fields = [
   ["corner", "select"],
   ["size", "select"],
   ["always_on_top", "checkbox"],
-  ["hide_until_one_minute", "checkbox"],
+  ["idle_opacity", "number"],
   ["auto_collapse", "checkbox"],
   ["sound_enabled", "checkbox"],
   ["volume", "number"],

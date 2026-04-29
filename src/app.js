@@ -44,13 +44,17 @@ function fmt(sec) {
   return `${m}:${ss}`;
 }
 
+let isHovered = false;
+
 function applyVisibility() {
   if (!settings) return;
-  if (settings.hide_until_one_minute) {
-    document.body.style.opacity = remainingSec <= 60 ? "1" : "0";
-  } else {
-    document.body.style.opacity = "1";
-  }
+  document.body.style.opacity = isHovered ? "1" : String(settings.idle_opacity ?? 0.5);
+}
+
+function setupHoverOpacity() {
+  const c = $("container");
+  c.addEventListener("mouseenter", () => { isHovered = true; applyVisibility(); });
+  c.addEventListener("mouseleave", () => { isHovered = false; applyVisibility(); });
 }
 
 function render() {
@@ -171,6 +175,7 @@ function setupControls() {
   document.querySelectorAll(".phase-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
+  setupHoverOpacity();
 }
 
 async function init() {

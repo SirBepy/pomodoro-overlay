@@ -9,7 +9,7 @@ html, body {
   color: #fff;
 }
 
-body.overlay { -webkit-app-region: drag; }
+body.overlay { -webkit-app-region: drag; transition: opacity 0.3s ease; }
 button, input, select { -webkit-app-region: no-drag; }
 
 #container {
