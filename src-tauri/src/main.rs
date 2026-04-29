@@ -31,9 +31,9 @@ fn save_settings(
     }
     settings::persist(&app, &settings)?;
     if let Some(win) = app.get_webview_window("main") {
-        let _ = win.set_always_on_top(settings.always_on_top);
         let (w, h) = settings.pill_size();
         let _ = resize_and_anchor(&win, &settings, w, h);
+        let _ = win.set_always_on_top(settings.always_on_top);
     }
     apply_autostart(&app, settings.autostart);
     Ok(())
@@ -51,7 +51,9 @@ fn set_window_size(app: AppHandle, expanded: bool) -> Result<(), String> {
     } else {
         settings.pill_size()
     };
-    resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())
+    resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())?;
+    let _ = win.set_always_on_top(settings.always_on_top);
+    Ok(())
 }
 
 #[tauri::command]
@@ -214,9 +216,9 @@ fn main() {
             let settings = settings::load(&handle);
             apply_autostart(&handle, settings.autostart);
             if let Some(win) = handle.get_webview_window("main") {
-                let _ = win.set_always_on_top(settings.always_on_top);
                 let (w, h) = settings.pill_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
+                let _ = win.set_always_on_top(settings.always_on_top);
                 let _ = win.show();
             }
             handle.manage(SettingsState(Mutex::new(settings)));
