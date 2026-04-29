@@ -197,6 +197,29 @@ function setupControls() {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
   setupHoverOpacity();
+  setupResizeHandles();
+}
+
+let resizeSaveTimer = null;
+
+function setupResizeHandles() {
+  document.querySelectorAll(".resize-handle").forEach((el) => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      invoke("start_resize", { direction: el.dataset.dir }).catch((err) =>
+        console.warn("start_resize failed", err),
+      );
+    });
+  });
+  window.addEventListener("resize", () => {
+    if (resizeSaveTimer) clearTimeout(resizeSaveTimer);
+    resizeSaveTimer = setTimeout(() => {
+      resizeSaveTimer = null;
+      invoke("save_window_size").catch((err) =>
+        console.warn("save_window_size failed", err),
+      );
+    }, 400);
+  });
 }
 
 let returnCornerTimer = null;

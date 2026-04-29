@@ -93,6 +93,59 @@ async fn pick_sound_file(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+fn start_resize(app: AppHandle, direction: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::ReleaseCapture;
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            PostMessageW, WM_NCLBUTTONDOWN, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTTOPLEFT, HTTOPRIGHT,
+        };
+
+        let win = app
+            .get_webview_window("main")
+            .ok_or_else(|| "no main window".to_string())?;
+
+        let handle = win.window_handle().map_err(|e| e.to_string())?;
+        let hwnd = match handle.as_raw() {
+            RawWindowHandle::Win32(h) => h.hwnd.get() as *mut std::ffi::c_void,
+            _ => return Err("not a Win32 window".into()),
+        };
+
+        let ht: usize = match direction.as_str() {
+            "NorthWest" => HTTOPLEFT as usize,
+            "NorthEast" => HTTOPRIGHT as usize,
+            "SouthWest" => HTBOTTOMLEFT as usize,
+            "SouthEast" => HTBOTTOMRIGHT as usize,
+            _ => return Err(format!("unknown direction: {direction}")),
+        };
+
+        unsafe {
+            ReleaseCapture();
+            PostMessageW(hwnd, WM_NCLBUTTONDOWN, ht, 0);
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (app, direction);
+    Ok(())
+}
+
+#[tauri::command]
+fn save_window_size(app: AppHandle, state: State<'_, SettingsState>) -> Result<(), String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    let size = win.outer_size().map_err(|e| e.to_string())?;
+    let settings = {
+        let mut s = state.0.lock().unwrap();
+        s.width = size.width;
+        s.height = size.height;
+        s.clone()
+    };
+    settings::persist(&app, &settings)
+}
+
+#[tauri::command]
 fn quit_app(app: AppHandle) {
     app.exit(0);
 }
@@ -143,13 +196,12 @@ fn compute_corner_position(
         .or(win.primary_monitor()?)
         .ok_or("no monitor")?;
     let scale = monitor.scale_factor();
-    let size = monitor.size();
-    let pos = monitor.position();
+    let work = monitor.work_area();
     let margin = (16.0 * scale) as i32;
-    let mw = size.width as i32;
-    let mh = size.height as i32;
-    let mx = pos.x;
-    let my = pos.y;
+    let mw = work.size.width as i32;
+    let mh = work.size.height as i32;
+    let mx = work.position.x;
+    let my = work.position.y;
     Ok(match settings.corner.as_str() {
         "tl" => (mx + margin, my + margin),
         "tr" => (mx + mw - w as i32 - margin, my + margin),
@@ -260,6 +312,7 @@ fn main() {
                 let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
                 let _ = win.set_always_on_top(settings.always_on_top);
+                let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 120u32)));
                 let _ = win.show();
             }
             handle.manage(SettingsState(Mutex::new(settings)));
@@ -279,6 +332,8 @@ fn main() {
             get_corner_position,
             set_window_position,
             is_cursor_over_window,
+            start_resize,
+            save_window_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
