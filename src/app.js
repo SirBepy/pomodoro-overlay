@@ -181,31 +181,47 @@ function setupControls() {
 
 let returnCornerTimer = null;
 let returnCornerSetup = false;
+let returnCornerInterval = null;
+let isAnimating = false;
 
 function lerp(a, b, t) {
   return Math.round(a + (b - a) * t);
 }
 
 async function animateToCorner() {
+  if (returnCornerInterval) {
+    clearInterval(returnCornerInterval);
+    returnCornerInterval = null;
+  }
   const [tx, ty] = await invoke("get_corner_position");
   const win = getCurrentWindow();
   const pos = await win.outerPosition();
+  if (Math.abs(pos.x - tx) <= 1 && Math.abs(pos.y - ty) <= 1) return;
   const startX = pos.x;
   const startY = pos.y;
   const duration = 400;
   const fps = 60;
   const steps = Math.round((duration / 1000) * fps);
   let step = 0;
-  const interval = setInterval(async () => {
-    step++;
-    const t = step / steps;
-    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    const x = lerp(startX, tx, ease);
-    const y = lerp(startY, ty, ease);
-    await invoke("set_window_position", { x, y });
-    if (step >= steps) {
-      clearInterval(interval);
-      await invoke("set_window_position", { x: tx, y: ty });
+  isAnimating = true;
+  returnCornerInterval = setInterval(async () => {
+    try {
+      step++;
+      const t = step / steps;
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      const x = lerp(startX, tx, ease);
+      const y = lerp(startY, ty, ease);
+      await invoke("set_window_position", { x, y });
+      if (step >= steps) {
+        clearInterval(returnCornerInterval);
+        returnCornerInterval = null;
+        isAnimating = false;
+        await invoke("set_window_position", { x: tx, y: ty });
+      }
+    } catch (e) {
+      clearInterval(returnCornerInterval);
+      returnCornerInterval = null;
+      isAnimating = false;
     }
   }, 1000 / fps);
 }
@@ -223,6 +239,7 @@ async function setupReturnToCorner() {
   returnCornerSetup = true;
   const win = getCurrentWindow();
   await win.onMoved(() => {
+    if (isAnimating) return;
     if (!settings || settings.return_to_corner_seconds === 0) return;
     scheduleReturnToCorner(settings.return_to_corner_seconds);
   });
