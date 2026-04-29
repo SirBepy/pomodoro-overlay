@@ -97,6 +97,45 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn get_corner_position(app: AppHandle) -> Result<(i32, i32), String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    let s = app.state::<SettingsState>();
+    let settings = s.0.lock().unwrap().clone();
+    let (w, h) = settings.expanded_size();
+    let monitor = win
+        .current_monitor()
+        .map_err(|e| e.to_string())?
+        .or(win.primary_monitor().map_err(|e| e.to_string())?)
+        .ok_or_else(|| "no monitor".to_string())?;
+    let scale = monitor.scale_factor();
+    let size = monitor.size();
+    let pos = monitor.position();
+    let margin = (16.0 * scale) as i32;
+    let mw = size.width as i32;
+    let mh = size.height as i32;
+    let mx = pos.x;
+    let my = pos.y;
+    let (x, y) = match settings.corner.as_str() {
+        "tl" => (mx + margin, my + margin),
+        "tr" => (mx + mw - w as i32 - margin, my + margin),
+        "bl" => (mx + margin, my + mh - h as i32 - margin),
+        _ => (mx + mw - w as i32 - margin, my + mh - h as i32 - margin),
+    };
+    Ok((x, y))
+}
+
+#[tauri::command]
+fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    win.set_position(PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())
+}
+
 fn resize_and_anchor(
     win: &WebviewWindow,
     settings: &Settings,
@@ -232,6 +271,8 @@ fn main() {
             notify,
             pick_sound_file,
             quit_app,
+            get_corner_position,
+            set_window_position,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
