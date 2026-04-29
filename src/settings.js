@@ -67,7 +67,6 @@ document.getElementById("save").addEventListener("click", async () => {
   const s = readForm();
   await invoke("save_settings", { settings: s });
   await emit("settings-updated");
-  await getCurrentWindow().close();
 });
 
 document.getElementById("close").addEventListener("click", async () => {
