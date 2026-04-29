@@ -5,13 +5,15 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct Settings {
     pub work_minutes: u32,
     pub short_break_minutes: u32,
     pub long_break_minutes: u32,
     pub sessions_before_long_break: u32,
     pub corner: String,
-    pub size: String,
+    pub width: u32,
+    pub height: u32,
     pub idle_opacity: f32,
     pub auto_collapse: bool,
     pub sound_enabled: bool,
@@ -32,7 +34,8 @@ impl Default for Settings {
             long_break_minutes: 15,
             sessions_before_long_break: 4,
             corner: "br".to_string(),
-            size: "m".to_string(),
+            width: 300,
+            height: 180,
             idle_opacity: 0.5,
             auto_collapse: true,
             sound_enabled: true,
@@ -49,11 +52,7 @@ impl Default for Settings {
 
 impl Settings {
     pub fn expanded_size(&self) -> (u32, u32) {
-        match self.size.as_str() {
-            "s" => (260, 165),
-            "l" => (360, 215),
-            _ => (300, 180),
-        }
+        (self.width, self.height)
     }
 }
 

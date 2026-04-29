@@ -8,7 +8,6 @@ const fields = [
   ["long_break_minutes", "number"],
   ["sessions_before_long_break", "number"],
   ["corner", "select"],
-  ["size", "select"],
   ["always_on_top", "checkbox"],
   ["idle_opacity", "number"],
   ["auto_collapse", "checkbox"],
