@@ -20,6 +20,7 @@ pub struct Settings {
     pub autostart: bool,
     pub always_on_top: bool,
     pub auto_advance: bool,
+    pub return_to_corner_seconds: u32,
 }
 
 impl Default for Settings {
@@ -39,6 +40,7 @@ impl Default for Settings {
             autostart: false,
             always_on_top: true,
             auto_advance: true,
+            return_to_corner_seconds: 0,
         }
     }
 }
