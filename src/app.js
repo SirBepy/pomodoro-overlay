@@ -59,15 +59,17 @@ function applyVisibility() {
 }
 
 function setupHoverOpacity() {
-  const c = $("container");
-  c.addEventListener("mouseenter", () => {
-    isHovered = true;
-    applyVisibility();
-  });
-  c.addEventListener("mouseleave", () => {
-    isHovered = false;
-    applyVisibility();
-  });
+  setInterval(async () => {
+    try {
+      const over = await invoke("is_cursor_over_window");
+      if (over !== isHovered) {
+        isHovered = over;
+        applyVisibility();
+      }
+    } catch (e) {
+      console.warn("is_cursor_over_window failed", e);
+    }
+  }, 150);
 }
 
 function render() {

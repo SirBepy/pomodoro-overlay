@@ -117,6 +117,21 @@ fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn is_cursor_over_window(app: AppHandle) -> Result<bool, String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    let cursor = app.cursor_position().map_err(|e| e.to_string())?;
+    let pos = win.outer_position().map_err(|e| e.to_string())?;
+    let size = win.outer_size().map_err(|e| e.to_string())?;
+    let cx = cursor.x as i32;
+    let cy = cursor.y as i32;
+    let in_x = cx >= pos.x && cx < pos.x + size.width as i32;
+    let in_y = cy >= pos.y && cy < pos.y + size.height as i32;
+    Ok(in_x && in_y)
+}
+
 fn compute_corner_position(
     win: &WebviewWindow,
     settings: &Settings,
@@ -263,6 +278,7 @@ fn main() {
             quit_app,
             get_corner_position,
             set_window_position,
+            is_cursor_over_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
