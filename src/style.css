@@ -28,7 +28,7 @@ button, input, select { -webkit-app-region: no-drag; }
 
 #panel {
   display: flex;
-  padding: 14px 18px 12px;
+  padding: 8px 14px 8px;
   height: 100%;
   flex-direction: column;
   align-items: center;
@@ -73,11 +73,12 @@ button, input, select { -webkit-app-region: no-drag; }
 }
 
 .big-time {
-  font-size: 78px;
+  font-size: 64px;
   font-weight: 800;
   text-align: center;
   font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
+  line-height: 1;
 }
 
 .controls {
@@ -91,13 +92,13 @@ button, input, select { -webkit-app-region: no-drag; }
   background: #fff;
   color: var(--bg);
   border: 0;
-  padding: 10px 40px;
+  padding: 8px 28px;
   border-radius: 6px;
   font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 3px;
+  font-size: 15px;
+  letter-spacing: 2px;
   cursor: pointer;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
   transition: transform 0.05s, box-shadow 0.05s;
 }
 .primary-btn:active {
@@ -121,7 +122,6 @@ button, input, select { -webkit-app-region: no-drag; }
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
 }
-.counter { font-size: 13px; opacity: 0.85; font-weight: 600; }

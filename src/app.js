@@ -56,8 +56,7 @@ function applyVisibility() {
 function render() {
   const t = fmt(remainingSec);
   document.querySelector(".big-time").textContent = t;
-  $("counter").textContent = counter;
-  $("play").textContent = running ? "PAUSE" : "START";
+  $("play").textContent = `${running ? "PAUSE" : "START"} #${counter}`;
   applyVisibility();
 }
 
