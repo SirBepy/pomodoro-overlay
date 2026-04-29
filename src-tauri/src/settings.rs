@@ -21,6 +21,7 @@ pub struct Settings {
     pub always_on_top: bool,
     pub auto_advance: bool,
     pub return_to_corner_seconds: u32,
+    pub fade_when: String,
 }
 
 impl Default for Settings {
@@ -41,6 +42,7 @@ impl Default for Settings {
             always_on_top: true,
             auto_advance: true,
             return_to_corner_seconds: 0,
+            fade_when: "always".to_string(),
         }
     }
 }
@@ -48,9 +50,9 @@ impl Default for Settings {
 impl Settings {
     pub fn expanded_size(&self) -> (u32, u32) {
         match self.size.as_str() {
-            "s" => (280, 360),
-            "l" => (380, 480),
-            _ => (320, 420),
+            "s" => (260, 165),
+            "l" => (360, 215),
+            _ => (300, 180),
         }
     }
 }
