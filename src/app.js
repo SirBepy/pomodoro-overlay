@@ -219,6 +219,7 @@ async function animateToCorner() {
         await invoke("set_window_position", { x: tx, y: ty });
       }
     } catch (e) {
+      console.warn("animateToCorner error", e);
       clearInterval(returnCornerInterval);
       returnCornerInterval = null;
       isAnimating = false;
