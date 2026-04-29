@@ -173,26 +173,54 @@ function handlePhaseEnd() {
   if (settings.auto_advance) startTimer();
 }
 
-function expand() {
-  if (document.body.classList.contains("expanded")) return;
-  document.body.classList.add("expanded");
-  invoke("set_window_size", { expanded: true }).catch(() => {});
-  applyVisibility();
+let collapseTimer = null;
+let resizeBusy = false;
+
+function cancelCollapse() {
+  if (collapseTimer) {
+    clearTimeout(collapseTimer);
+    collapseTimer = null;
+  }
 }
 
-function collapse() {
-  if (!document.body.classList.contains("expanded")) return;
-  document.body.classList.remove("expanded");
-  invoke("set_window_size", { expanded: false }).catch(() => {});
+async function expand() {
+  cancelCollapse();
+  if (document.body.classList.contains("expanded")) return;
+  if (resizeBusy) return;
+  resizeBusy = true;
+  document.body.classList.add("expanded");
   applyVisibility();
+  try { await invoke("set_window_size", { expanded: true }); }
+  catch (e) { console.warn(e); }
+  setTimeout(() => { resizeBusy = false; }, 80);
+}
+
+async function doCollapse() {
+  if (!document.body.classList.contains("expanded")) return;
+  if (resizeBusy) return;
+  resizeBusy = true;
+  document.body.classList.remove("expanded");
+  applyVisibility();
+  try { await invoke("set_window_size", { expanded: false }); }
+  catch (e) { console.warn(e); }
+  setTimeout(() => { resizeBusy = false; }, 80);
+}
+
+function scheduleCollapse() {
+  if (!settings || !settings.auto_collapse) return;
+  cancelCollapse();
+  collapseTimer = setTimeout(() => {
+    collapseTimer = null;
+    doCollapse();
+  }, 250);
 }
 
 function setupHover() {
-  document.body.addEventListener("mouseenter", expand);
-  document.body.addEventListener("mouseleave", () => {
-    if (settings.auto_collapse) collapse();
-  });
-  $("close-panel").addEventListener("click", collapse);
+  const root = document.documentElement;
+  root.addEventListener("mouseenter", expand);
+  root.addEventListener("mouseleave", scheduleCollapse);
+  document.body.addEventListener("mouseenter", cancelCollapse);
+  $("close-panel").addEventListener("click", doCollapse);
 }
 
 function setupControls() {
