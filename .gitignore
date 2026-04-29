@@ -1,0 +1,29 @@
+# Rust / Cargo
+target/
+**/target/
+Cargo.lock
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local user notes (per global rules)
+COMMENTS_FOR_BEPY.md
+WORKFLOWS_FOR_SIRBEPY.md
+
+# Build artifacts
+dist/
+*.log

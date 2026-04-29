@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data: asset: https://asset.localhost; media-src 'self' data: asset: https://asset.localhost; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com" />
+  <title>Pomodoro Overlay</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="overlay">
+  <div id="container" class="phase-work">
+    <div id="pill">
+      <div id="pill-time">25:00</div>
+      <div id="pill-state">Focus</div>
+    </div>
+
+    <div id="panel">
+      <div class="panel-header">
+        <div class="phases">
+          <button class="phase-btn active" data-phase="work">Pomodoro</button>
+          <button class="phase-btn" data-phase="short">Short Break</button>
+          <button class="phase-btn" data-phase="long">Long Break</button>
+        </div>
+        <button id="close-panel" class="icon-btn" title="Collapse">
+          <i class="ph ph-caret-down"></i>
+        </button>
+      </div>
+
+      <div class="big-time">25:00</div>
+
+      <div class="controls">
+        <button id="reset" class="icon-btn" title="Reset">
+          <i class="ph ph-arrow-counter-clockwise"></i>
+        </button>
+        <button id="play" class="primary-btn">START</button>
+        <button id="skip" class="icon-btn" title="Skip">
+          <i class="ph ph-skip-forward"></i>
+        </button>
+      </div>
+
+      <div class="footer">
+        <div class="counter">#<span id="counter">1</span></div>
+        <div class="hint" id="phase-hint">Time to focus!</div>
+        <button id="open-settings" class="icon-btn" title="Settings">
+          <i class="ph ph-gear-six"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

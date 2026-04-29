@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com" />
+  <title>Settings</title>
+  <link rel="stylesheet" href="settings.css" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+  <div class="settings">
+    <h1><i class="ph ph-gear-six"></i> Settings</h1>
+
+    <section>
+      <h2>Times (minutes)</h2>
+      <label>Pomodoro <input type="number" min="1" max="180" id="work_minutes" /></label>
+      <label>Short break <input type="number" min="1" max="60" id="short_break_minutes" /></label>
+      <label>Long break <input type="number" min="1" max="120" id="long_break_minutes" /></label>
+      <label>Sessions before long break <input type="number" min="1" max="10" id="sessions_before_long_break" /></label>
+    </section>
+
+    <section>
+      <h2>Position & Size</h2>
+      <label>Corner
+        <select id="corner">
+          <option value="tl">Top Left</option>
+          <option value="tr">Top Right</option>
+          <option value="bl">Bottom Left</option>
+          <option value="br">Bottom Right</option>
+        </select>
+      </label>
+      <label>Size
+        <select id="size">
+          <option value="s">Small</option>
+          <option value="m">Medium</option>
+          <option value="l">Large</option>
+        </select>
+      </label>
+      <label class="toggle">Always on top <input type="checkbox" id="always_on_top" /></label>
+    </section>
+
+    <section>
+      <h2>Visibility</h2>
+      <label class="toggle">Hide until 1 minute remaining <input type="checkbox" id="hide_until_one_minute" /></label>
+      <label class="toggle">Collapse on mouse leave <input type="checkbox" id="auto_collapse" /></label>
+    </section>
+
+    <section>
+      <h2>Sound</h2>
+      <label class="toggle">Play sound on timer end <input type="checkbox" id="sound_enabled" /></label>
+      <label>Volume <input type="range" id="volume" min="0" max="1" step="0.05" /></label>
+      <div class="sound-row">
+        <span id="sound-path-display">Default tone</span>
+        <button id="pick-sound" type="button">Pick file...</button>
+        <button id="reset-sound" type="button">Reset</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Behavior</h2>
+      <label class="toggle">Auto-start next phase <input type="checkbox" id="auto_advance" /></label>
+      <label class="toggle">Launch at Windows startup <input type="checkbox" id="autostart" /></label>
+    </section>
+
+    <div class="actions">
+      <button id="close" type="button">Cancel</button>
+      <button id="save" class="primary" type="button">Save</button>
+    </div>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>
