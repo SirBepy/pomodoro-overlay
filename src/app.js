@@ -1,5 +1,6 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const { getCurrentWindow } = window.__TAURI__.window;
 
 const PHASE_WORK  = "work";
 const PHASE_SHORT = "short";
@@ -178,16 +179,70 @@ function setupControls() {
   setupHoverOpacity();
 }
 
+let returnCornerTimer = null;
+let returnCornerSetup = false;
+
+function lerp(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+async function animateToCorner() {
+  const [tx, ty] = await invoke("get_corner_position");
+  const win = getCurrentWindow();
+  const pos = await win.outerPosition();
+  const startX = pos.x;
+  const startY = pos.y;
+  const duration = 400;
+  const fps = 60;
+  const steps = Math.round((duration / 1000) * fps);
+  let step = 0;
+  const interval = setInterval(async () => {
+    step++;
+    const t = step / steps;
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const x = lerp(startX, tx, ease);
+    const y = lerp(startY, ty, ease);
+    await invoke("set_window_position", { x, y });
+    if (step >= steps) {
+      clearInterval(interval);
+      await invoke("set_window_position", { x: tx, y: ty });
+    }
+  }, 1000 / fps);
+}
+
+function scheduleReturnToCorner(delaySec) {
+  if (returnCornerTimer) clearTimeout(returnCornerTimer);
+  returnCornerTimer = setTimeout(() => {
+    returnCornerTimer = null;
+    animateToCorner();
+  }, delaySec * 1000);
+}
+
+async function setupReturnToCorner() {
+  if (returnCornerSetup) return;
+  returnCornerSetup = true;
+  const win = getCurrentWindow();
+  await win.onMoved(() => {
+    if (!settings || settings.return_to_corner_seconds === 0) return;
+    scheduleReturnToCorner(settings.return_to_corner_seconds);
+  });
+}
+
 async function init() {
   settings = await invoke("get_settings");
   remainingSec = phaseDuration(phase);
   applyPhaseClass();
   render();
   setupControls();
+  await setupReturnToCorner();
   await listen("settings-updated", async () => {
     const wasRunning = running;
     settings = await invoke("get_settings");
     if (!wasRunning) remainingSec = phaseDuration(phase);
+    if (settings.return_to_corner_seconds === 0 && returnCornerTimer) {
+      clearTimeout(returnCornerTimer);
+      returnCornerTimer = null;
+    }
     render();
   });
 }
