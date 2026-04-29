@@ -16,7 +16,7 @@ const fields = [
   ["volume", "number"],
   ["auto_advance", "checkbox"],
   ["autostart", "checkbox"],
-  ["return_to_corner_seconds", "number"],
+  ["return_to_corner_seconds", "integer"],
 ];
 
 let soundPath = null;
@@ -41,6 +41,7 @@ function readForm() {
     if (!el) return;
     if (type === "checkbox") out[key] = el.checked;
     else if (type === "number") out[key] = parseFloat(el.value);
+    else if (type === "integer") out[key] = Math.round(parseFloat(el.value) || 0);
     else out[key] = el.value;
   });
   out.sound_path = soundPath;

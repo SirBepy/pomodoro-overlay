@@ -189,6 +189,7 @@ function lerp(a, b, t) {
 }
 
 async function animateToCorner() {
+  isAnimating = true;
   if (returnCornerInterval) {
     clearInterval(returnCornerInterval);
     returnCornerInterval = null;
@@ -196,7 +197,10 @@ async function animateToCorner() {
   const [tx, ty] = await invoke("get_corner_position");
   const win = getCurrentWindow();
   const pos = await win.outerPosition();
-  if (Math.abs(pos.x - tx) <= 1 && Math.abs(pos.y - ty) <= 1) return;
+  if (Math.abs(pos.x - tx) <= 1 && Math.abs(pos.y - ty) <= 1) {
+    isAnimating = false;
+    return;
+  }
   const startX = pos.x;
   const startY = pos.y;
   const duration = 400;
