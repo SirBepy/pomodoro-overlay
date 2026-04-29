@@ -4,7 +4,13 @@ mod settings;
 
 use settings::{Settings, SettingsState};
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    image::Image,
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+    AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
+};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_notification::NotificationExt;
 
@@ -87,6 +93,11 @@ async fn pick_sound_file(app: AppHandle) -> Result<Option<String>, String> {
     rx.recv().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
+
 fn resize_and_anchor(
     win: &WebviewWindow,
     settings: &Settings,
@@ -125,8 +136,73 @@ fn apply_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+    let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
+    let sep = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &hide, &settings_item, &sep, &quit])?;
+
+    let icon: Image = match app.default_window_icon() {
+        Some(i) => i.clone(),
+        None => Image::from_bytes(include_bytes!("../icons/32x32.png"))?,
+    };
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(icon)
+        .tooltip("Pomodoro Overlay")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+            "hide" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+            "settings" => {
+                let _ = open_settings_window(app.clone());
+            }
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click {
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(w) = app.get_webview_window("main") {
+                    if w.is_visible().unwrap_or(false) {
+                        let _ = w.hide();
+                    } else {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
@@ -144,6 +220,9 @@ fn main() {
                 let _ = win.show();
             }
             handle.manage(SettingsState(Mutex::new(settings)));
+            if let Err(e) = build_tray(&handle) {
+                eprintln!("failed to build tray: {e}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -153,6 +232,7 @@ fn main() {
             open_settings_window,
             notify,
             pick_sound_file,
+            quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
