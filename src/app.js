@@ -51,9 +51,11 @@ let isHovered = false;
 
 function applyVisibility() {
   if (!settings) return;
-  document.body.style.opacity = isHovered
-    ? "1"
-    : String(settings.idle_opacity ?? 0.5);
+  const fadeWhen = settings.fade_when ?? "always";
+  const shouldFade =
+    fadeWhen === "always" || (fadeWhen === "running" && running);
+  document.body.style.opacity =
+    isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
 }
 
 function setupHoverOpacity() {
