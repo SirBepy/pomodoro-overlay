@@ -31,7 +31,7 @@ fn save_settings(
     }
     settings::persist(&app, &settings)?;
     if let Some(win) = app.get_webview_window("main") {
-        let (w, h) = settings.pill_size();
+        let (w, h) = settings.expanded_size();
         let _ = resize_and_anchor(&win, &settings, w, h);
         let _ = win.set_always_on_top(settings.always_on_top);
     }
@@ -46,11 +46,8 @@ fn set_window_size(app: AppHandle, expanded: bool) -> Result<(), String> {
         .ok_or_else(|| "no main window".to_string())?;
     let s = app.state::<SettingsState>();
     let settings = s.0.lock().unwrap().clone();
-    let (w, h) = if expanded {
-        settings.expanded_size()
-    } else {
-        settings.pill_size()
-    };
+    let _ = expanded;
+    let (w, h) = settings.expanded_size();
     resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())?;
     let _ = win.set_always_on_top(settings.always_on_top);
     Ok(())
@@ -216,7 +213,7 @@ fn main() {
             let settings = settings::load(&handle);
             apply_autostart(&handle, settings.autostart);
             if let Some(win) = handle.get_webview_window("main") {
-                let (w, h) = settings.pill_size();
+                let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
                 let _ = win.set_always_on_top(settings.always_on_top);
                 let _ = win.show();

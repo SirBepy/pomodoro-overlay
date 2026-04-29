@@ -28,12 +28,6 @@ function phaseLabel(p) {
   return "Focus";
 }
 
-function phaseHint(p) {
-  if (p === PHASE_SHORT) return "Take a short break.";
-  if (p === PHASE_LONG)  return "Take a long break!";
-  return "Time to focus!";
-}
-
 function applyPhaseClass() {
   const c = $("container");
   c.classList.remove("phase-work", "phase-short", "phase-long");
@@ -52,7 +46,7 @@ function fmt(sec) {
 
 function applyVisibility() {
   if (!settings) return;
-  if (settings.hide_until_one_minute && !document.body.classList.contains("expanded")) {
+  if (settings.hide_until_one_minute) {
     document.body.style.opacity = remainingSec <= 60 ? "1" : "0";
   } else {
     document.body.style.opacity = "1";
@@ -61,10 +55,7 @@ function applyVisibility() {
 
 function render() {
   const t = fmt(remainingSec);
-  $("pill-time").textContent = t;
-  $("pill-state").textContent = phaseLabel(phase);
   document.querySelector(".big-time").textContent = t;
-  $("phase-hint").textContent = phaseHint(phase);
   $("counter").textContent = counter;
   $("play").textContent = running ? "PAUSE" : "START";
   applyVisibility();
@@ -173,56 +164,6 @@ function handlePhaseEnd() {
   if (settings.auto_advance) startTimer();
 }
 
-let collapseTimer = null;
-let resizeBusy = false;
-
-function cancelCollapse() {
-  if (collapseTimer) {
-    clearTimeout(collapseTimer);
-    collapseTimer = null;
-  }
-}
-
-async function expand() {
-  cancelCollapse();
-  if (document.body.classList.contains("expanded")) return;
-  if (resizeBusy) return;
-  resizeBusy = true;
-  document.body.classList.add("expanded");
-  applyVisibility();
-  try { await invoke("set_window_size", { expanded: true }); }
-  catch (e) { console.warn(e); }
-  setTimeout(() => { resizeBusy = false; }, 80);
-}
-
-async function doCollapse() {
-  if (!document.body.classList.contains("expanded")) return;
-  if (resizeBusy) return;
-  resizeBusy = true;
-  document.body.classList.remove("expanded");
-  applyVisibility();
-  try { await invoke("set_window_size", { expanded: false }); }
-  catch (e) { console.warn(e); }
-  setTimeout(() => { resizeBusy = false; }, 80);
-}
-
-function scheduleCollapse() {
-  if (!settings || !settings.auto_collapse) return;
-  cancelCollapse();
-  collapseTimer = setTimeout(() => {
-    collapseTimer = null;
-    doCollapse();
-  }, 250);
-}
-
-function setupHover() {
-  const root = document.documentElement;
-  root.addEventListener("mouseenter", expand);
-  root.addEventListener("mouseleave", scheduleCollapse);
-  document.body.addEventListener("mouseenter", cancelCollapse);
-  $("close-panel").addEventListener("click", doCollapse);
-}
-
 function setupControls() {
   $("play").addEventListener("click", () => (running ? pauseTimer() : startTimer()));
   $("reset").addEventListener("click", resetTimer);
@@ -238,7 +179,6 @@ async function init() {
   remainingSec = phaseDuration(phase);
   applyPhaseClass();
   render();
-  setupHover();
   setupControls();
   await listen("settings-updated", async () => {
     const wasRunning = running;

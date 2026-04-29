@@ -44,14 +44,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn pill_size(&self) -> (u32, u32) {
-        match self.size.as_str() {
-            "s" => (220, 64),
-            "l" => (340, 96),
-            _ => (280, 80),
-        }
-    }
-
     pub fn expanded_size(&self) -> (u32, u32) {
         match self.size.as_str() {
             "s" => (280, 360),

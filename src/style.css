@@ -26,48 +26,37 @@ button, input, select { -webkit-app-region: no-drag; }
 .phase-short { --bg: #38858a; }
 .phase-long  { --bg: #397097; }
 
-#pill {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 22px;
-  height: 100%;
-  gap: 12px;
-}
-#pill-time {
-  font-size: 30px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
-}
-#pill-state {
-  font-size: 13px;
-  opacity: 0.85;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-}
-
 #panel {
-  display: none;
-  padding: 16px 18px;
+  display: flex;
+  padding: 14px 18px 12px;
   height: 100%;
   flex-direction: column;
-}
-body.expanded #panel { display: flex; }
-body.expanded #pill  { display: none; }
-
-.panel-header {
-  display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
 }
+
+.hoverable {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+#container:hover .hoverable {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#panel-top {
+  width: 100%;
+}
+
 .phases {
   display: flex;
   gap: 4px;
-  flex: 1;
   flex-wrap: wrap;
+  justify-content: center;
 }
+
 .phase-btn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -87,7 +76,6 @@ body.expanded #pill  { display: none; }
   font-size: 78px;
   font-weight: 800;
   text-align: center;
-  margin: 14px 0 18px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
 }
@@ -98,6 +86,7 @@ body.expanded #pill  { display: none; }
   justify-content: center;
   gap: 14px;
 }
+
 .primary-btn {
   background: #fff;
   color: var(--bg);
@@ -133,8 +122,6 @@ body.expanded #pill  { display: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
-  padding-top: 14px;
+  width: 100%;
 }
 .counter { font-size: 13px; opacity: 0.85; font-weight: 600; }
-.hint    { font-size: 12px; opacity: 0.75; }
