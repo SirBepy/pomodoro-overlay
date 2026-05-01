@@ -304,6 +304,7 @@ fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_kit_updater::plugin())
         .setup(|app| {
             let handle = app.handle().clone();
             let settings = settings::load(&handle);

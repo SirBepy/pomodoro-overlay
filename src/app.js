@@ -1,6 +1,11 @@
+import { checkAndPromptUpdate } from "../vendor/tauri_kit/frontend/updater/check";
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const { getCurrentWindow } = window.__TAURI__.window;
+
+// Fire-and-forget. Never blocks app startup.
+checkAndPromptUpdate();
 
 const PHASE_WORK = "work";
 const PHASE_SHORT = "short";
