@@ -23,6 +23,7 @@ Thumbs.db
 # Local user notes (per global rules)
 COMMENTS_FOR_BEPY.md
 WORKFLOWS_FOR_SIRBEPY.md
+docs/
 
 # Build artifacts
 dist/
