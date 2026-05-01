@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -58,28 +56,12 @@ impl Settings {
 
 pub struct SettingsState(pub Mutex<Settings>);
 
-fn config_path(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let dir = app.path().app_config_dir()?;
-    fs::create_dir_all(&dir)?;
-    Ok(dir.join("settings.json"))
-}
+const SETTINGS_FILENAME: &str = "settings.json";
 
 pub fn load(app: &AppHandle) -> Settings {
-    let path = match config_path(app) {
-        Ok(p) => p,
-        Err(_) => return Settings::default(),
-    };
-    if !path.exists() {
-        return Settings::default();
-    }
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Settings>(&t).ok())
-        .unwrap_or_default()
+    tauri_kit_settings::load_for::<_, Settings>(app, SETTINGS_FILENAME).unwrap_or_default()
 }
 
 pub fn persist(app: &AppHandle, settings: &Settings) -> Result<(), String> {
-    let path = config_path(app).map_err(|e| e.to_string())?;
-    let text = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(path, text).map_err(|e| e.to_string())
+    tauri_kit_settings::save_for(app, SETTINGS_FILENAME, settings).map_err(|e| e.to_string())
 }
