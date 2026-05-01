@@ -10,33 +10,23 @@
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 
-<body class="overlay">
-  <div id="container" class="phase-work">
-    <div id="panel">
-      <div id="panel-top" class="hoverable">
-        <div class="phases">
-          <button class="phase-btn active" data-phase="work">Focus</button>
-          <button class="phase-btn" data-phase="short">Break</button>
-          <button class="phase-btn" data-phase="long">Big Break</button>
-        </div>
-        <div class="top-actions">
-          <button id="open-settings" class="icon-btn" title="Settings">
-            <i class="ph ph-gear-six"></i>
-          </button>
-        </div>
+<body>
+  <div id="app" class="phase-work">
+    <div class="top-bar hoverable">
+      <div class="phase-tabs">
+        <button class="tab-btn active" data-phase="work">Focus</button>
+        <button class="tab-btn" data-phase="short">Break</button>
+        <button class="tab-btn" data-phase="long">Big Break</button>
       </div>
+    </div>
 
-      <div class="big-time">25:00</div>
+    <div class="timer">25:00</div>
 
-      <div class="controls hoverable">
-        <button id="reset" class="icon-btn" title="Reset">
-          <i class="ph ph-arrow-counter-clockwise"></i>
-        </button>
-        <button id="play" class="primary-btn">START</button>
-        <button id="skip" class="icon-btn" title="Skip">
-          <i class="ph ph-skip-forward"></i>
-        </button>
-      </div>
+    <div class="bottom-bar">
+      <button id="play" class="start-btn">START #1</button>
+      <button id="skip" class="start-btn skip-btn" title="Skip">
+        <i class="ph ph-skip-forward"></i>
+      </button>
     </div>
   </div>
 

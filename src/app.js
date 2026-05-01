@@ -49,17 +49,11 @@ function phaseDuration(p) {
   return settings.work_minutes * 60;
 }
 
-function phaseLabel(p) {
-  if (p === PHASE_SHORT) return "Short Break";
-  if (p === PHASE_LONG) return "Long Break";
-  return "Focus";
-}
-
 function applyPhaseClass() {
-  const c = $("container");
+  const c = $("app");
   c.classList.remove("phase-work", "phase-short", "phase-long");
   c.classList.add(`phase-${phase}`);
-  document.querySelectorAll(".phase-btn").forEach((b) => {
+  document.querySelectorAll(".tab-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.phase === phase);
   });
 }
@@ -82,7 +76,7 @@ function applyVisibility() {
     fadeWhen === "always" || (fadeWhen === "running" && running);
   document.body.style.opacity =
     isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
-  $("container").classList.toggle("is-hovered", isHovered || !running);
+  $("app").classList.toggle("is-hovered", isHovered || !running);
 }
 
 function setupHoverOpacity() {
@@ -101,8 +95,9 @@ function setupHoverOpacity() {
 
 function render() {
   const t = fmt(remainingSec);
-  document.querySelector(".big-time").textContent = t;
+  document.querySelector(".timer").textContent = t;
   $("play").textContent = `${running ? "PAUSE" : "START"} #${counter}`;
+  $("skip").classList.toggle("visible", running);
   applyVisibility();
   saveState();
 }
@@ -127,19 +122,6 @@ function pauseTimer() {
   running = false;
   if (tickHandle) clearInterval(tickHandle);
   tickHandle = null;
-  render();
-}
-
-function resetTimer() {
-  if (phase === PHASE_WORK) {
-    const total = phaseDuration(phase);
-    if ((total - remainingSec) / total >= 0.6) {
-      workSessionsCompleted += 1;
-      counter += 1;
-    }
-  }
-  pauseTimer();
-  remainingSec = phaseDuration(phase);
   render();
 }
 
@@ -223,12 +205,8 @@ function setupControls() {
   $("play").addEventListener("click", () =>
     running ? pauseTimer() : startTimer(),
   );
-  $("reset").addEventListener("click", resetTimer);
   $("skip").addEventListener("click", () => handlePhaseEnd());
-  $("open-settings").addEventListener("click", () =>
-    invoke("open_settings_window"),
-  );
-  document.querySelectorAll(".phase-btn").forEach((b) => {
+  document.querySelectorAll(".tab-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
   setupHoverOpacity();
