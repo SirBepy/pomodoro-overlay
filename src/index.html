@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data: asset: https://asset.localhost; media-src 'self' data: asset: https://asset.localhost; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com" />
+    content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data: asset: https://asset.localhost; media-src 'self' data: asset: https://asset.localhost; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; style-src-elem 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' data: https://unpkg.com https://cdn.jsdelivr.net; connect-src 'self' http://ipc.localhost https://ipc.localhost" />
   <title>Pomodoro Overlay</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -22,10 +22,10 @@
 
     <div class="timer">25:00</div>
 
-    <div class="bottom-bar">
+    <div class="bottom-bar hoverable">
       <button id="play" class="start-btn">START #1</button>
       <button id="skip" class="start-btn skip-btn" title="Skip">
-        <i class="ph ph-skip-forward"></i>
+        <i class="ph-fill ph-skip-forward"></i>
       </button>
     </div>
   </div>
