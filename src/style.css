@@ -48,33 +48,50 @@ select {
 
 #panel {
   display: flex;
-  padding: 3vh 5vw 1vh;
+  padding: 3vh 5vw 3vh;
   height: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
 }
 
 .hoverable {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  max-height: 0;
+  overflow: hidden;
   pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    max-height 0.3s ease;
 }
 
-#container:hover .hoverable {
+#container.is-hovered .hoverable {
   opacity: 1;
+  max-height: 20vh;
   pointer-events: auto;
+  transition:
+    opacity 0.25s ease,
+    max-height 0.3s ease;
 }
 
 #panel-top {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .phases {
   display: flex;
   gap: 1.5vw;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  width: 100%;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
 }
 
 .phase-btn {
@@ -83,7 +100,7 @@ select {
   color: #fff;
   padding: 2vh 3vw;
   border-radius: 6px;
-  font-size: 3.5vw;
+  font-size: 4.5vw;
   cursor: pointer;
   font-weight: 500;
 }
@@ -93,12 +110,21 @@ select {
 }
 
 .big-time {
-  font-size: 21vw;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28vw;
   font-weight: 800;
-  text-align: center;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
   line-height: 1;
+  white-space: nowrap;
+  transition: font-size 0.3s ease;
+}
+
+#container.is-hovered .big-time {
+  font-size: 21vw;
 }
 
 .controls {
@@ -143,13 +169,6 @@ select {
   opacity: 1;
 }
 
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
 .resize-handle {
   position: fixed;
   width: 16px;
@@ -157,7 +176,23 @@ select {
   z-index: 1000;
   -webkit-app-region: no-drag;
 }
-.resize-nw { top: 0; left: 0; cursor: nw-resize; }
-.resize-ne { top: 0; right: 0; cursor: ne-resize; }
-.resize-sw { bottom: 0; left: 0; cursor: sw-resize; }
-.resize-se { bottom: 0; right: 0; cursor: se-resize; }
+.resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+.resize-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+.resize-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+.resize-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}

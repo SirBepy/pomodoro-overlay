@@ -14,6 +14,32 @@ let tickHandle = null;
 let workSessionsCompleted = 0;
 let counter = 1;
 
+const STATE_KEY = "pomodoro-overlay-state";
+
+function saveState() {
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    phase, remainingSec, running, workSessionsCompleted, counter,
+    savedAt: Date.now(),
+  }));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    phase = s.phase ?? phase;
+    workSessionsCompleted = s.workSessionsCompleted ?? 0;
+    counter = s.counter ?? 1;
+    const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
+    remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(phase)) - elapsed);
+    return !!s.running && remainingSec > 0;
+  } catch (e) {
+    console.warn("loadState failed", e);
+    return false;
+  }
+}
+
 const $ = (id) => document.getElementById(id);
 
 function phaseDuration(p) {
@@ -56,6 +82,7 @@ function applyVisibility() {
     fadeWhen === "always" || (fadeWhen === "running" && running);
   document.body.style.opacity =
     isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
+  $("container").classList.toggle("is-hovered", isHovered || !running);
 }
 
 function setupHoverOpacity() {
@@ -77,6 +104,7 @@ function render() {
   document.querySelector(".big-time").textContent = t;
   $("play").textContent = `${running ? "PAUSE" : "START"} #${counter}`;
   applyVisibility();
+  saveState();
 }
 
 function tick() {
@@ -103,6 +131,13 @@ function pauseTimer() {
 }
 
 function resetTimer() {
+  if (phase === PHASE_WORK) {
+    const total = phaseDuration(phase);
+    if ((total - remainingSec) / total >= 0.6) {
+      workSessionsCompleted += 1;
+      counter += 1;
+    }
+  }
   pauseTimer();
   remainingSec = phaseDuration(phase);
   render();
@@ -295,8 +330,10 @@ async function setupReturnToCorner() {
 async function init() {
   settings = await invoke("get_settings");
   remainingSec = phaseDuration(phase);
+  const shouldResume = loadState();
   applyPhaseClass();
   render();
+  if (shouldResume) startTimer();
   setupControls();
   await setupReturnToCorner();
   await listen("settings-updated", async () => {
