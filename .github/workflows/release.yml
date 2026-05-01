@@ -1,4 +1,4 @@
-name: Release
+name: Tauri Release
 
 on:
   push:
@@ -20,13 +20,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
 
       - name: Resolve version and tag
         id: check
         shell: bash
         run: |
-          VERSION=$(jq -r .version src-tauri/tauri.conf.json)
-          TAG="v$VERSION"
+          VERSION=$(jq -r .version package.json)
+          TAG="tauri-v$VERSION"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
@@ -43,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Create and push tag
         shell: bash
         run: |
@@ -57,6 +60,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v4
         with:
@@ -66,14 +71,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Sync version into Cargo.toml and package.json
+      - name: Sync version into tauri.conf.json and Cargo.toml
         shell: bash
         run: |
           VERSION="${{ needs.check.outputs.version }}"
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
           sed -i.bak -E "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
           rm src-tauri/Cargo.toml.bak
-          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -92,29 +97,42 @@ jobs:
           tool: tauri-cli
 
       - name: Build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         working-directory: src-tauri
         run: cargo tauri build --target x86_64-pc-windows-msvc
 
-      - name: Stage artifacts
+      - name: Stage Windows artifacts
         shell: bash
+        working-directory: src-tauri/target/x86_64-pc-windows-msvc/release/bundle
         run: |
+          TAG="${{ needs.check.outputs.tag }}"
           VERSION="${{ needs.check.outputs.version }}"
-          mkdir -p release-staging
-          NSIS_DIR="src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
-          MSI_DIR="src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi"
-          if ls "$NSIS_DIR"/*_x64-setup.exe 2>/dev/null; then
-            EXE=$(ls "$NSIS_DIR"/*_x64-setup.exe | head -n 1)
-            cp "$EXE" "release-staging/Pomodoro-Overlay_${VERSION}_windows_x64.exe"
-          fi
-          if ls "$MSI_DIR"/*.msi 2>/dev/null; then
-            MSI=$(ls "$MSI_DIR"/*.msi | head -n 1)
-            cp "$MSI" "release-staging/Pomodoro-Overlay_${VERSION}_windows_x64.msi"
+          mkdir -p "$GITHUB_WORKSPACE/release-staging"
+
+          # NSIS installer doubles as updater payload.
+          EXE=$(ls nsis/*_x64-setup.exe | head -n 1)
+          ASSET="Pomodoro-Overlay_${VERSION}_windows_x64.exe"
+          cp "$EXE" "$GITHUB_WORKSPACE/release-staging/$ASSET"
+          cp "${EXE}.sig" "$GITHUB_WORKSPACE/release-staging/${ASSET}.sig"
+
+          SIG=$(cat "${EXE}.sig")
+          URL="https://github.com/SirBepy/pomodoro-overlay/releases/download/${TAG}/${ASSET}"
+          jq -n --arg sig "$SIG" --arg url "$URL" \
+            '{signature:$sig, url:$url}' \
+            > "$GITHUB_WORKSPACE/release-staging/windows-x86_64.json"
+
+          # MSI for users who prefer it (not part of updater payload).
+          if ls msi/*.msi 2>/dev/null; then
+            MSI=$(ls msi/*.msi | head -n 1)
+            cp "$MSI" "$GITHUB_WORKSPACE/release-staging/Pomodoro-Overlay_${VERSION}_windows_x64.msi"
           fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: release-windows-x86_64
           path: release-staging/
 
   publish:
@@ -126,15 +144,38 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
-          pattern: release-windows
+          pattern: release-*
           merge-multiple: true
 
-      - name: Create release
+      - name: Generate latest.json
+        shell: bash
+        working-directory: artifacts
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          PLATFORMS="{}"
+          for f in *.json; do
+            KEY="${f%.json}"
+            PLATFORMS=$(jq --arg k "$KEY" --slurpfile p "$f" \
+              '. + {($k): $p[0]}' <<< "$PLATFORMS")
+          done
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "Release $VERSION" \
+            --arg pub_date "$DATE" \
+            --argjson platforms "$PLATFORMS" \
+            '{version:$version, notes:$notes, pub_date:$pub_date, platforms:$platforms}' \
+            > latest.json
+          cat latest.json
+
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/*.exe
+            artifacts/*.exe.sig
             artifacts/*.msi
+            artifacts/latest.json
           tag_name: ${{ needs.check.outputs.tag }}
           name: ${{ needs.check.outputs.tag }}
           draft: false
