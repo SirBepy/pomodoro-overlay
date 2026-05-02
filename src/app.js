@@ -329,6 +329,27 @@ async function init() {
     }
     render();
   });
+  await listen("settings-reset", async () => {
+    // Settings file was deleted by kit_reset_settings command.
+    // Re-load defaults and re-apply size/position/state.
+    pauseTimer();
+    settings = await invoke("get_settings");
+    phase = PHASE_WORK;
+    remainingSec = phaseDuration(phase);
+    workSessionsCompleted = 0;
+    counter = 1;
+    if (returnCornerTimer) {
+      clearTimeout(returnCornerTimer);
+      returnCornerTimer = null;
+    }
+    try {
+      await invoke("set_window_size", { expanded: true });
+    } catch (e) {
+      console.warn("set_window_size failed", e);
+    }
+    applyPhaseClass();
+    render();
+  });
 }
 
 init();
