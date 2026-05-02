@@ -64,8 +64,12 @@ export const settingsSchema = defineSchema({
       title: "Behavior",
       fields: [
         { key: "auto_advance", kind: "toggle", label: "Auto-start next phase" },
-        { key: "autostart", kind: "toggle", label: "Launch at Windows startup" },
       ],
     },
   ],
 });
+
+/** App-specific rows that render inline under the kit's System category. */
+export const systemInline = [
+  { key: "autostart", kind: "toggle" as const, label: "Launch at startup" },
+];
