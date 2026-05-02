@@ -20,7 +20,8 @@ pub struct Settings {
     pub volume: f32,
     pub autostart: bool,
     pub always_on_top: bool,
-    pub auto_advance: bool,
+    pub auto_start_work: bool,
+    pub auto_start_break: bool,
     pub return_to_corner_seconds: u32,
     pub fade_when: String,
     #[serde(flatten)]
@@ -44,7 +45,8 @@ impl Default for Settings {
             volume: 0.7,
             autostart: false,
             always_on_top: true,
-            auto_advance: true,
+            auto_start_work: true,
+            auto_start_break: true,
             return_to_corner_seconds: 0,
             fade_when: "always".to_string(),
             kit: KitSettings::default(),
@@ -63,7 +65,25 @@ pub struct SettingsState(pub Mutex<Settings>);
 const SETTINGS_FILENAME: &str = "settings.json";
 
 pub fn load(app: &AppHandle) -> Settings {
-    tauri_kit_settings::load_for::<_, Settings>(app, SETTINGS_FILENAME).unwrap_or_default()
+    let mut settings = tauri_kit_settings::load_for::<_, Settings>(app, SETTINGS_FILENAME)
+        .unwrap_or_default();
+
+    if let Ok(path) = tauri_kit_settings::paths::settings_path(app, SETTINGS_FILENAME) {
+        if let Ok(bytes) = std::fs::read(&path) {
+            if let Ok(raw) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                let has_new_keys =
+                    raw.get("auto_start_work").is_some() || raw.get("auto_start_break").is_some();
+                if !has_new_keys {
+                    if let Some(legacy) = raw.get("auto_advance").and_then(|v| v.as_bool()) {
+                        settings.auto_start_work = legacy;
+                        settings.auto_start_break = legacy;
+                    }
+                }
+            }
+        }
+    }
+
+    settings
 }
 
 pub fn persist(app: &AppHandle, settings: &Settings) -> Result<(), String> {

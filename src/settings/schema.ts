@@ -3,16 +3,18 @@ import { defineSchema } from "../../vendor/tauri_kit/frontend/settings/schema";
 export const settingsSchema = defineSchema({
   sections: [
     {
-      title: "Times (minutes)",
+      title: "Times",
       fields: [
         { key: "work_minutes", kind: "integer", label: "Pomodoro", min: 1, max: 180 },
         { key: "short_break_minutes", kind: "integer", label: "Short break", min: 1, max: 60 },
         { key: "long_break_minutes", kind: "integer", label: "Long break", min: 1, max: 120 },
         { key: "sessions_before_long_break", kind: "integer", label: "Sessions before long break", min: 1, max: 10 },
+        { key: "auto_start_work", kind: "toggle", label: "Auto-start work phase" },
+        { key: "auto_start_break", kind: "toggle", label: "Auto-start break phase" },
       ],
     },
     {
-      title: "Position & Size",
+      title: "Window",
       fields: [
         {
           key: "corner",
@@ -26,12 +28,15 @@ export const settingsSchema = defineSchema({
           ],
         },
         { key: "always_on_top", kind: "toggle", label: "Always on top" },
-        { key: "return_to_corner_seconds", kind: "integer", label: "Return to corner after (s, 0=never)", min: 0, max: 3600 },
-      ],
-    },
-    {
-      title: "Visibility",
-      fields: [
+        {
+          key: "return_to_corner_seconds",
+          kind: "integer",
+          label: "Return to corner after",
+          min: 0,
+          max: 3600,
+          tooltip:
+            "Seconds before the overlay snaps back to its corner after you drag it. Set to 0 to never return.",
+        },
         {
           key: "fade_when",
           kind: "select",
@@ -42,7 +47,15 @@ export const settingsSchema = defineSchema({
             { value: "always", label: "Always" },
           ],
         },
-        { key: "idle_opacity", kind: "range", label: "Transparent off hover", min: 0, max: 1, step: 0.05 },
+        {
+          key: "idle_opacity",
+          kind: "range",
+          label: "Transparency",
+          min: 0,
+          max: 1,
+          step: 0.05,
+          visibleWhen: (s) => s.fade_when !== "never",
+        },
         { key: "auto_collapse", kind: "toggle", label: "Collapse on mouse leave" },
       ],
     },
@@ -58,12 +71,6 @@ export const settingsSchema = defineSchema({
           pickerCommand: "pick_sound_file",
           defaultLabel: "Default tone",
         },
-      ],
-    },
-    {
-      title: "Behavior",
-      fields: [
-        { key: "auto_advance", kind: "toggle", label: "Auto-start next phase" },
       ],
     },
   ],

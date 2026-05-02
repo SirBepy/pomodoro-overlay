@@ -203,7 +203,9 @@ function handlePhaseEnd() {
   }
   setPhase(next);
   invoke("notify", { title, body }).catch(() => {});
-  if (settings.auto_advance) startTimer();
+  const shouldAutoStart =
+    next === PHASE_WORK ? settings.auto_start_work : settings.auto_start_break;
+  if (shouldAutoStart) startTimer();
 }
 
 function setupControls() {
