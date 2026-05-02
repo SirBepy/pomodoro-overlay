@@ -29,3 +29,6 @@ docs/*
 # Build artifacts
 dist/
 *.log
+
+# Brainstorm scratch
+.superpowers/
