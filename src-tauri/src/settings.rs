@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::AppHandle;
+use tauri_kit_settings::KitSettings;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -22,6 +23,8 @@ pub struct Settings {
     pub auto_advance: bool,
     pub return_to_corner_seconds: u32,
     pub fade_when: String,
+    #[serde(flatten)]
+    pub kit: KitSettings,
 }
 
 impl Default for Settings {
@@ -44,6 +47,7 @@ impl Default for Settings {
             auto_advance: true,
             return_to_corner_seconds: 0,
             fade_when: "always".to_string(),
+            kit: KitSettings::default(),
         }
     }
 }
