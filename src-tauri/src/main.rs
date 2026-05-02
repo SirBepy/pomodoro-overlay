@@ -231,6 +231,14 @@ fn apply_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
+fn dimmed_icon(icon: &Image) -> Image<'static> {
+    let mut rgba = icon.rgba().to_vec();
+    for i in (3..rgba.len()).step_by(4) {
+        rgba[i] = rgba[i] / 2;
+    }
+    Image::new_owned(rgba, icon.width(), icon.height())
+}
+
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
     let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
@@ -248,16 +256,29 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .icon(icon)
         .tooltip("Pomodoro Overlay")
         .menu(&menu)
+        .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
+                if let Some(t) = app.tray_by_id("main-tray") {
+                    let icon = app.default_window_icon()
+                        .cloned()
+                        .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+                    let _ = t.set_icon(Some(icon));
+                }
             }
             "hide" => {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
+                }
+                if let Some(t) = app.tray_by_id("main-tray") {
+                    let base = app.default_window_icon()
+                        .cloned()
+                        .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+                    let _ = t.set_icon(Some(dimmed_icon(&base)));
                 }
             }
             "settings" => {
@@ -277,11 +298,19 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             {
                 let app = tray.app_handle();
                 if let Some(w) = app.get_webview_window("main") {
-                    if w.is_visible().unwrap_or(false) {
+                    let visible = w.is_visible().unwrap_or(false);
+                    if visible {
                         let _ = w.hide();
                     } else {
                         let _ = w.show();
                         let _ = w.set_focus();
+                    }
+                    if let Some(t) = app.tray_by_id("main-tray") {
+                        let base = app.default_window_icon()
+                            .cloned()
+                            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+                        let icon = if visible { dimmed_icon(&base) } else { base };
+                        let _ = t.set_icon(Some(icon));
                     }
                 }
             }
