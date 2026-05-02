@@ -334,6 +334,7 @@ fn main() {
             None,
         ))
         .plugin(tauri_kit_updater::plugin())
+        .plugin(tauri_kit_settings::with_kit_commands())
         .setup(|app| {
             let handle = app.handle().clone();
             let settings = settings::load(&handle);
