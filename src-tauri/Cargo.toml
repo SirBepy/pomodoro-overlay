@@ -7,15 +7,16 @@ edition = "2021"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "=2.11.0", features = ["protocol-asset", "tray-icon", "image-png"] }
-tauri-plugin-autostart = "2.11"
+tauri = { version = "2.11", features = ["protocol-asset", "tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2.3"
 tauri-plugin-single-instance = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-updater = "2.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
+tokio = { version = "1", features = ["rt-multi-thread"] }
 tauri_kit_settings = { path = "../vendor/tauri_kit/tauri/settings" }
 tauri_kit_updater = { path = "../vendor/tauri_kit/tauri/updater" }
 
