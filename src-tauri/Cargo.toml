@@ -22,6 +22,7 @@ tauri_kit_updater = { path = "../vendor/tauri_kit/tauri/updater" }
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation"] }
 raw-window-handle = "0.6"
+windows = { version = "0.58", features = ["Media_Control", "Foundation_Collections"] }
 
 [profile.release]
 panic = "abort"
