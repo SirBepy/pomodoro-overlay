@@ -71,6 +71,7 @@ const SETTINGS_FILENAME: &str = "settings.json";
 pub fn load(app: &AppHandle) -> Settings {
     let mut settings = tauri_kit_settings::load_for::<_, Settings>(app, SETTINGS_FILENAME)
         .unwrap_or_default();
+    log::info!("settings loaded; work={}m break={}m", settings.work_minutes, settings.short_break_minutes);
 
     if let Ok(path) = tauri_kit_settings::paths::settings_path(app, SETTINGS_FILENAME) {
         if let Ok(bytes) = std::fs::read(&path) {
@@ -91,5 +92,11 @@ pub fn load(app: &AppHandle) -> Settings {
 }
 
 pub fn persist(app: &AppHandle, settings: &Settings) -> Result<(), String> {
-    tauri_kit_settings::save_for(app, SETTINGS_FILENAME, settings).map_err(|e| e.to_string())
+    let result = tauri_kit_settings::save_for(app, SETTINGS_FILENAME, settings).map_err(|e| e.to_string());
+    if result.is_ok() {
+        log::info!("settings persisted to disk");
+    } else {
+        log::warn!("settings persist failed: {:?}", result);
+    }
+    result
 }

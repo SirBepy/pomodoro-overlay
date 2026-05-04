@@ -29,6 +29,7 @@ fn save_settings(
         let mut s = state.0.lock().unwrap();
         *s = settings.clone();
     }
+    log::info!("settings saved");
     settings::persist(&app, &settings)?;
     if let Some(win) = app.get_webview_window("main") {
         let (w, h) = settings.expanded_size();
@@ -187,6 +188,7 @@ fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
 
 #[tauri::command]
 fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), String> {
+    log::info!("fullscreen: {fullscreen}");
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
@@ -375,10 +377,12 @@ fn main() {
             None,
         ))
         .plugin(tauri_kit_updater::plugin())
+        .plugin(tauri_kit_settings::with_logging())
         .plugin(tauri_kit_settings::with_kit_commands())
         .setup(|app| {
             let handle = app.handle().clone();
             let settings = settings::load(&handle);
+            log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
             apply_autostart(&handle, settings.autostart);
             if let Some(win) = handle.get_webview_window("main") {
                 let (w, h) = settings.expanded_size();
