@@ -26,6 +26,7 @@ pub struct Settings {
     pub fade_when: String,
     pub reset_on_restart: bool,
     pub fullscreen_on_focus_end: bool,
+    pub pause_music_on_break: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -53,6 +54,7 @@ impl Default for Settings {
             fade_when: "always".to_string(),
             reset_on_restart: false,
             fullscreen_on_focus_end: false,
+            pause_music_on_break: false,
             kit: KitSettings::default(),
         }
     }

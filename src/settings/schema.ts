@@ -73,6 +73,7 @@ export const settingsSchema = defineSchema({
           pickerCommand: "pick_sound_file",
           defaultLabel: "Default tone",
         },
+        { key: "pause_music_on_break", kind: "toggle", label: "Pause music on break" },
       ],
     },
   ],
