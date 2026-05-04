@@ -1,4 +1,14 @@
 import { runAutoUpdateCheck } from "../vendor/tauri_kit/frontend/updater/auto-check";
+import {
+  PHASE_SNOOZE,
+  fsState,
+  initFullscreen,
+  renderSnoozeButton,
+  enterOverlayFullscreen,
+  exitOverlayFullscreen,
+  startSnooze,
+  endSnooze,
+} from "./fullscreen.js";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -10,8 +20,6 @@ runAutoUpdateCheck();
 const PHASE_WORK = "work";
 const PHASE_SHORT = "short";
 const PHASE_LONG = "long";
-const PHASE_SNOOZE = "snooze";
-const SNOOZE_DURATION = 2 * 60;
 
 let settings = null;
 let phase = PHASE_WORK;
@@ -20,13 +28,6 @@ let running = false;
 let tickHandle = null;
 let workSessionsCompleted = 0;
 let counter = 1;
-
-// Fullscreen / snooze state
-let isOverlayFullscreen = false;
-let snoozeCount = 0;
-let snoozeHandle = null;
-let snoozeRemaining = 0;
-let pendingBreakPhase = null;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -110,21 +111,8 @@ function setupHoverOpacity() {
   }, 150);
 }
 
-function renderSnoozeButton() {
-  const btn = $("snooze");
-  if (!btn) return;
-  const showSnooze =
-    settings?.fullscreen_on_focus_end &&
-    isOverlayFullscreen &&
-    (phase === PHASE_SHORT || phase === PHASE_LONG);
-  btn.classList.toggle("visible", showSnooze);
-  if (showSnooze) {
-    btn.textContent = `2 more minutes #${snoozeCount + 1}`;
-  }
-}
-
 function render() {
-  const t = phase === PHASE_SNOOZE ? fmt(snoozeRemaining) : fmt(remainingSec);
+  const t = phase === PHASE_SNOOZE ? fmt(fsState.snoozeRemaining) : fmt(remainingSec);
   document.querySelector(".timer").textContent = t;
   $("play").textContent = `${running ? "PAUSE" : "START"} #${counter}`;
   $("skip").classList.toggle("visible", running && phase !== PHASE_SNOOZE);
@@ -145,7 +133,7 @@ function tick() {
 function startTimer() {
   if (running) return;
   // Exiting to focus: restore original window size
-  if (phase === PHASE_WORK && isOverlayFullscreen) {
+  if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
     exitOverlayFullscreen();
   }
   running = true;
@@ -162,71 +150,20 @@ function pauseTimer() {
 
 function setPhase(p) {
   // Snooze is cancelled when user manually switches phase
-  if (snoozeHandle) {
-    clearInterval(snoozeHandle);
-    snoozeHandle = null;
-    pendingBreakPhase = null;
+  if (fsState.snoozeHandle) {
+    clearInterval(fsState.snoozeHandle);
+    fsState.snoozeHandle = null;
+    fsState.pendingBreakPhase = null;
   }
   pauseTimer();
   // Exiting to focus via tab click: restore original window size
-  if (p === PHASE_WORK && isOverlayFullscreen) {
+  if (p === PHASE_WORK && fsState.isOverlayFullscreen) {
     exitOverlayFullscreen();
   }
   phase = p;
   remainingSec = phaseDuration(phase);
   applyPhaseClass();
   render();
-}
-
-// ── Fullscreen overlay ──
-
-async function enterOverlayFullscreen() {
-  isOverlayFullscreen = true;
-  await invoke("set_window_fullscreen", { fullscreen: true }).catch(() => {});
-  renderSnoozeButton();
-}
-
-async function exitOverlayFullscreen() {
-  isOverlayFullscreen = false;
-  await invoke("set_window_fullscreen", { fullscreen: false }).catch(() => {});
-  renderSnoozeButton();
-}
-
-// ── Snooze (2 more minutes) ──
-
-function startSnooze() {
-  if (snoozeHandle) {
-    clearInterval(snoozeHandle);
-    snoozeHandle = null;
-  }
-  pendingBreakPhase = phase;
-  snoozeCount += 1;
-  snoozeRemaining = SNOOZE_DURATION;
-  phase = PHASE_SNOOZE;
-  applyPhaseClass();
-  renderSnoozeButton();
-  snoozeHandle = setInterval(() => {
-    snoozeRemaining -= 1;
-    if (snoozeRemaining <= 0) {
-      clearInterval(snoozeHandle);
-      snoozeHandle = null;
-      endSnooze();
-    } else {
-      document.querySelector(".timer").textContent = fmt(snoozeRemaining);
-    }
-  }, 1000);
-  document.querySelector(".timer").textContent = fmt(snoozeRemaining);
-}
-
-function endSnooze() {
-  phase = pendingBreakPhase ?? PHASE_SHORT;
-  pendingBreakPhase = null;
-  remainingSec = phaseDuration(phase);
-  applyPhaseClass();
-  // Stay fullscreen during break after snooze
-  renderSnoozeButton();
-  render();
-  if (settings?.auto_start_break) startTimer();
 }
 
 let audioCtx = null;
@@ -298,12 +235,12 @@ function handlePhaseEnd() {
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
     // Enter fullscreen for break; reset snooze count for this focus session
-    snoozeCount = 0;
+    fsState.snoozeCount = 0;
     enterOverlayFullscreen();
     if (settings.auto_start_break) startTimer();
   } else {
     // When break ends naturally, always exit fullscreen before returning to focus
-    if (ended !== PHASE_WORK && isOverlayFullscreen) {
+    if (ended !== PHASE_WORK && fsState.isOverlayFullscreen) {
       exitOverlayFullscreen();
     }
     const shouldAutoStart =
@@ -341,7 +278,7 @@ function setupResizeHandles() {
     el.addEventListener("mousedown", (e) => {
       e.preventDefault();
       // User took manual control; exit fullscreen tracking
-      isOverlayFullscreen = false;
+      fsState.isOverlayFullscreen = false;
       renderSnoozeButton();
       invoke("start_resize", { direction: el.dataset.dir }).catch((err) =>
         console.warn("start_resize failed", err),
@@ -350,7 +287,7 @@ function setupResizeHandles() {
   });
   window.addEventListener("resize", () => {
     // Don't save size while in fullscreen mode (size was set by the system)
-    if (isOverlayFullscreen) return;
+    if (fsState.isOverlayFullscreen) return;
     if (resizeSaveTimer) clearTimeout(resizeSaveTimer);
     resizeSaveTimer = setTimeout(() => {
       resizeSaveTimer = null;
@@ -427,7 +364,7 @@ async function setupReturnToCorner() {
   await win.onMoved(() => {
     if (isAnimating) return;
     if (!settings || settings.return_to_corner_seconds === 0) return;
-    if (isOverlayFullscreen) return;
+    if (fsState.isOverlayFullscreen) return;
     scheduleReturnToCorner(settings.return_to_corner_seconds);
   });
 }
@@ -436,6 +373,17 @@ async function init() {
   settings = await invoke("get_settings");
   remainingSec = phaseDuration(phase);
   const shouldResume = loadState();
+  initFullscreen({
+    getSettings: () => settings,
+    getPhase: () => phase,
+    setPhase: (p) => { phase = p; },
+    setRemainingSec: (v) => { remainingSec = v; },
+    getPhaseDuration: phaseDuration,
+    fmt,
+    applyPhaseClass,
+    startTimer,
+    render,
+  });
   applyPhaseClass();
   render();
   if (shouldResume) startTimer();
@@ -454,15 +402,15 @@ async function init() {
   });
   await listen("settings-reset", async () => {
     pauseTimer();
-    if (snoozeHandle) { clearInterval(snoozeHandle); snoozeHandle = null; }
+    if (fsState.snoozeHandle) { clearInterval(fsState.snoozeHandle); fsState.snoozeHandle = null; }
     settings = await invoke("get_settings");
     phase = PHASE_WORK;
     remainingSec = phaseDuration(phase);
     workSessionsCompleted = 0;
     counter = 1;
-    snoozeCount = 0;
-    pendingBreakPhase = null;
-    isOverlayFullscreen = false;
+    fsState.snoozeCount = 0;
+    fsState.pendingBreakPhase = null;
+    fsState.isOverlayFullscreen = false;
     if (returnCornerTimer) {
       clearTimeout(returnCornerTimer);
       returnCornerTimer = null;
