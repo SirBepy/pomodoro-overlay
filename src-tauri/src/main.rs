@@ -17,73 +17,166 @@ use tauri_plugin_autostart::ManagerExt;
 // SMTC calls inside the commands are gated by #[cfg(target_os = "windows")].
 struct PausedSessionsState(std::sync::Mutex<Vec<String>>);
 
-// Stores the pre-existing NOC_GLOBAL_SETTING_TOASTS_ENABLED value so we
-// can restore it precisely when DND ends.
-struct DndState(std::sync::Mutex<Option<u32>>);
+// Stores the pre-existing CloudStore quiet-hours blob so we can restore it
+// byte-for-byte (FILETIME refreshed) when DND ends.
+struct DndState(std::sync::Mutex<Option<Vec<u8>>>);
 
 #[cfg(target_os = "windows")]
 mod dnd_impl {
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
-        HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD,
+        HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_BINARY,
     };
+
+    // Focus Assist (Quiet Hours) active-profile blob lives here.
+    const KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\CloudStore\\Store\\Cache\\DefaultAccount\\$$windows.data.notifications.quiethourssettings\\Current";
+    const VALUE_NAME: &str = "Data";
+    const PROFILE_ALARMS_ONLY: &str = "Microsoft.QuietHoursProfile.AlarmsOnly";
+
+    // Blob layout (observed):
+    //   [0..4]   version header (02 00 00 00)
+    //   [4..12]  FILETIME (must be refreshed on every write)
+    //   [12..16] padding (00 00 00 00)
+    //   [16..23] fixed (43 42 01 00 C2 0A 01)
+    //   [23..25] field prefix (D2 14)
+    //   [25]     UTF-16 char count of profile string
+    //   [26..]   UTF-16LE profile string ("Microsoft.QuietHoursProfile.<X>")
+    //   tail     CA <count> 00 00  (count typically duplicated)
+    const STR_OFFSET: usize = 26;
+    const COUNT_OFFSET: usize = 25;
 
     fn wide(s: &str) -> Vec<u16> {
         s.encode_utf16().chain(Some(0)).collect()
     }
 
-    /// Returns the current DWORD value of ToastEnabled,
-    /// or None if the key/value does not exist (absence == notifications enabled).
-    pub fn read_toast_setting() -> Option<u32> {
+    pub fn read_blob() -> Option<Vec<u8>> {
         unsafe {
             let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
-            let key = wide(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications",
-            );
-            if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey)
-                != 0
-            {
+            let key = wide(KEY_PATH);
+            if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey) != 0 {
                 return None;
             }
-            let val = wide("ToastEnabled");
-            let mut data = 0u32;
-            let mut size = 4u32;
-            let mut kind = 0u32;
-            let ok = RegQueryValueExW(
+            let val = wide(VALUE_NAME);
+            let mut size: u32 = 0;
+            let mut kind: u32 = 0;
+            let rc1 = RegQueryValueExW(
                 hkey,
                 val.as_ptr(),
                 std::ptr::null_mut(),
                 &mut kind,
-                &mut data as *mut u32 as *mut u8,
+                std::ptr::null_mut(),
                 &mut size,
-            ) == 0;
+            );
+            if rc1 != 0 || kind != REG_BINARY || size == 0 {
+                RegCloseKey(hkey);
+                return None;
+            }
+            let mut buf = vec![0u8; size as usize];
+            let rc2 = RegQueryValueExW(
+                hkey,
+                val.as_ptr(),
+                std::ptr::null_mut(),
+                &mut kind,
+                buf.as_mut_ptr(),
+                &mut size,
+            );
             RegCloseKey(hkey);
-            if ok && kind == REG_DWORD { Some(data) } else { None }
+            if rc2 == 0 {
+                buf.truncate(size as usize);
+                Some(buf)
+            } else {
+                None
+            }
         }
     }
 
-    /// Writes ToastEnabled and notifies the shell.
-    pub fn write_toast_setting(value: u32) {
+    pub fn write_blob(data: &[u8]) -> bool {
+        if data.is_empty() {
+            return false;
+        }
         unsafe {
             let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
-            let key = wide(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications",
-            );
+            let key = wide(KEY_PATH);
             if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
-                return;
+                return false;
             }
-            let val = wide("ToastEnabled");
-            let result = RegSetValueExW(
+            let val = wide(VALUE_NAME);
+            let rc = RegSetValueExW(
                 hkey,
                 val.as_ptr(),
                 0,
-                REG_DWORD,
-                &value as *const u32 as *const u8,
-                4,
+                REG_BINARY,
+                data.as_ptr(),
+                data.len() as u32,
             );
             RegCloseKey(hkey);
-            let _ = result;
+            rc == 0
         }
+    }
+
+    fn current_filetime() -> u64 {
+        use std::time::SystemTime;
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0);
+        (nanos / 100) + 116_444_736_000_000_000u64
+    }
+
+    fn stamp_filetime(buf: &mut [u8]) {
+        if buf.len() >= 12 {
+            buf[4..12].copy_from_slice(&current_filetime().to_le_bytes());
+        }
+    }
+
+    /// Replaces the profile string in `original` with "AlarmsOnly" and refreshes the FILETIME.
+    pub fn build_alarms_only(original: &[u8]) -> Option<Vec<u8>> {
+        if original.len() < STR_OFFSET {
+            return None;
+        }
+        let old_count = original[COUNT_OFFSET] as usize;
+        let old_str_end = STR_OFFSET + old_count * 2;
+        if old_str_end > original.len() {
+            return None;
+        }
+        let trailing = &original[old_str_end..];
+
+        let new_chars: Vec<u16> = PROFILE_ALARMS_ONLY.encode_utf16().collect();
+        let new_count = new_chars.len();
+        let mut new_str_bytes = Vec::with_capacity(new_count * 2);
+        for u in &new_chars {
+            new_str_bytes.extend_from_slice(&u.to_le_bytes());
+        }
+
+        let mut out = Vec::with_capacity(STR_OFFSET + new_str_bytes.len() + trailing.len());
+        out.extend_from_slice(&original[..STR_OFFSET]);
+        out[COUNT_OFFSET] = new_count as u8;
+        stamp_filetime(&mut out);
+        out.extend_from_slice(&new_str_bytes);
+
+        // If trailing is `CA <old_count> 00 00`, mirror the new count too.
+        if trailing.len() >= 4
+            && trailing[0] == 0xCA
+            && trailing[1] as usize == old_count
+            && trailing[2] == 0x00
+            && trailing[3] == 0x00
+        {
+            out.push(0xCA);
+            out.push(new_count as u8);
+            out.push(0x00);
+            out.push(0x00);
+            out.extend_from_slice(&trailing[4..]);
+        } else {
+            out.extend_from_slice(trailing);
+        }
+
+        Some(out)
+    }
+
+    pub fn refresh_filetime(blob: &[u8]) -> Vec<u8> {
+        let mut out = blob.to_vec();
+        stamp_filetime(&mut out);
+        out
     }
 }
 
@@ -394,10 +487,21 @@ fn enable_dnd(state: State<'_, DndState>) {
     #[cfg(target_os = "windows")]
     {
         let mut guard = state.0.lock().unwrap();
-        if guard.is_none() {
-            let prev = dnd_impl::read_toast_setting();
-            *guard = Some(prev.unwrap_or(1));
-            dnd_impl::write_toast_setting(0);
+        if guard.is_some() {
+            return;
+        }
+        let Some(original) = dnd_impl::read_blob() else {
+            log::warn!("enable_dnd: CloudStore quiethours blob not present; skipping");
+            return;
+        };
+        let Some(new_blob) = dnd_impl::build_alarms_only(&original) else {
+            log::warn!("enable_dnd: failed to build AlarmsOnly blob; skipping");
+            return;
+        };
+        if dnd_impl::write_blob(&new_blob) {
+            *guard = Some(original);
+        } else {
+            log::warn!("enable_dnd: failed to write CloudStore blob");
         }
     }
     #[cfg(not(target_os = "windows"))]
@@ -409,8 +513,11 @@ fn disable_dnd(state: State<'_, DndState>) {
     #[cfg(target_os = "windows")]
     {
         let prev = state.0.lock().unwrap().take();
-        if let Some(v) = prev {
-            dnd_impl::write_toast_setting(v);
+        if let Some(blob) = prev {
+            let refreshed = dnd_impl::refresh_filetime(&blob);
+            if !dnd_impl::write_blob(&refreshed) {
+                log::warn!("disable_dnd: failed to restore CloudStore blob");
+            }
         }
     }
     #[cfg(not(target_os = "windows"))]
