@@ -27,6 +27,7 @@ pub struct Settings {
     pub reset_on_restart: bool,
     pub fullscreen_on_focus_end: bool,
     pub pause_music_on_break: bool,
+    pub dnd_on_focus: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -55,6 +56,7 @@ impl Default for Settings {
             reset_on_restart: false,
             fullscreen_on_focus_end: false,
             pause_music_on_break: false,
+            dnd_on_focus: false,
             kit: KitSettings::default(),
         }
     }
