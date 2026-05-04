@@ -5,7 +5,6 @@ export const SNOOZE_DURATION = 2 * 60;
 
 export const fsState = {
   isOverlayFullscreen: false,
-  snoozeCount: 0,
   snoozeHandle: null,
   snoozeRemaining: 0,
   pendingBreakPhase: null,
@@ -28,7 +27,7 @@ export function renderSnoozeButton() {
     (phase === "short" || phase === "long");
   btn.classList.toggle("visible", showSnooze);
   if (showSnooze) {
-    btn.textContent = `2 more minutes #${fsState.snoozeCount + 1}`;
+    btn.textContent = "2 more minutes";
   }
 }
 
@@ -50,7 +49,6 @@ export function startSnooze() {
     fsState.snoozeHandle = null;
   }
   fsState.pendingBreakPhase = _host.getPhase();
-  fsState.snoozeCount += 1;
   fsState.snoozeRemaining = SNOOZE_DURATION;
   _host.setPhase(PHASE_SNOOZE);
   _host.applyPhaseClass();

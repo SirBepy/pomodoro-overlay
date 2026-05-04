@@ -27,14 +27,14 @@ let remainingSec = 25 * 60;
 let running = false;
 let tickHandle = null;
 let workSessionsCompleted = 0;
-let counter = 1;
+let musicPausedByApp = false;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
 function saveState() {
   if (phase === PHASE_SNOOZE) return;
   localStorage.setItem(STATE_KEY, JSON.stringify({
-    phase, remainingSec, running, workSessionsCompleted, counter,
+    phase, remainingSec, running, workSessionsCompleted,
     savedAt: Date.now(),
   }));
 }
@@ -48,7 +48,6 @@ function loadState() {
     phase = s.phase ?? phase;
     if (phase === PHASE_SNOOZE) { phase = PHASE_WORK; return false; }
     workSessionsCompleted = s.workSessionsCompleted ?? 0;
-    counter = s.counter ?? 1;
     const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
     remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(phase)) - elapsed);
     return !!s.running && remainingSec > 0;
@@ -114,7 +113,7 @@ function setupHoverOpacity() {
 function render() {
   const t = phase === PHASE_SNOOZE ? fmt(fsState.snoozeRemaining) : fmt(remainingSec);
   document.querySelector(".timer").textContent = t;
-  $("play").textContent = `${running ? "PAUSE" : "START"} #${counter}`;
+  $("play").textContent = running ? "PAUSE" : "START";
   $("skip").classList.toggle("visible", running && phase !== PHASE_SNOOZE);
   renderSnoozeButton();
   applyVisibility();
@@ -130,11 +129,19 @@ function tick() {
   render();
 }
 
-function startTimer() {
+async function startTimer() {
   if (running) return;
-  // Exiting to focus: restore original window size
   if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
     exitOverlayFullscreen();
+  }
+  if (settings?.pause_music_on_break) {
+    if (phase === PHASE_WORK && musicPausedByApp) {
+      invoke("media_resume").catch(() => {});
+      musicPausedByApp = false;
+    } else if ((phase === PHASE_SHORT || phase === PHASE_LONG) && !musicPausedByApp) {
+      const paused = await invoke("media_pause_if_playing").catch(() => false);
+      if (paused) musicPausedByApp = true;
+    }
   }
   running = true;
   tickHandle = setInterval(tick, 1000);
@@ -218,7 +225,6 @@ function handlePhaseEnd() {
   let next;
   if (ended === PHASE_WORK) {
     workSessionsCompleted += 1;
-    counter += 1;
     const isLong =
       workSessionsCompleted % settings.sessions_before_long_break === 0;
     next = isLong ? PHASE_LONG : PHASE_SHORT;
@@ -234,8 +240,6 @@ function handlePhaseEnd() {
   invoke("notify", { title, body }).catch(() => {});
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
-    // Enter fullscreen for break; reset snooze count for this focus session
-    fsState.snoozeCount = 0;
     enterOverlayFullscreen();
     if (settings.auto_start_break) startTimer();
   } else {
@@ -407,8 +411,7 @@ async function init() {
     phase = PHASE_WORK;
     remainingSec = phaseDuration(phase);
     workSessionsCompleted = 0;
-    counter = 1;
-    fsState.snoozeCount = 0;
+    musicPausedByApp = false;
     fsState.pendingBreakPhase = null;
     fsState.isOverlayFullscreen = false;
     if (returnCornerTimer) {
