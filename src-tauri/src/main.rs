@@ -288,8 +288,6 @@ async fn media_pause_if_playing(state: State<'_, PausedSessionsState>) -> Result
 async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
-
         let ids: Vec<String> = {
             let mut guard = state.0.lock().unwrap();
             std::mem::take(&mut *guard)
@@ -300,6 +298,8 @@ async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), Strin
         }
 
         tokio::task::spawn_blocking(move || -> Result<(), String> {
+            use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+
             let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
                 .map_err(|e| e.to_string())?
                 .get()
