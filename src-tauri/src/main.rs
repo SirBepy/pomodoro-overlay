@@ -70,6 +70,21 @@ fn open_settings_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_main_window(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+    if let Some(t) = app.tray_by_id("main-tray") {
+        let icon = app
+            .default_window_icon()
+            .cloned()
+            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+        let _ = t.set_icon(Some(icon));
+    }
+}
+
+#[tauri::command]
 fn notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
     app.notification()
         .builder()
@@ -168,6 +183,32 @@ fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
         .ok_or_else(|| "no main window".to_string())?;
     win.set_position(PhysicalPosition::new(x, y))
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    if fullscreen {
+        let monitor = win
+            .current_monitor()
+            .map_err(|e| e.to_string())?
+            .or(win.primary_monitor().map_err(|e| e.to_string())?)
+            .ok_or_else(|| "no monitor".to_string())?;
+        let work = monitor.work_area();
+        win.set_size(PhysicalSize::new(work.size.width, work.size.height))
+            .map_err(|e| e.to_string())?;
+        win.set_position(PhysicalPosition::new(work.position.x, work.position.y))
+            .map_err(|e| e.to_string())?;
+    } else {
+        let s = app.state::<SettingsState>();
+        let settings = s.0.lock().unwrap().clone();
+        let (w, h) = settings.expanded_size();
+        resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())?;
+        let _ = win.set_always_on_top(settings.always_on_top);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -357,6 +398,7 @@ fn main() {
             save_settings,
             set_window_size,
             open_settings_window,
+            show_main_window,
             notify,
             pick_sound_file,
             quit_app,
@@ -365,6 +407,7 @@ fn main() {
             is_cursor_over_window,
             start_resize,
             save_window_size,
+            set_window_fullscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

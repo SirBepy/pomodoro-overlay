@@ -11,6 +11,7 @@ export const settingsSchema = defineSchema({
         { key: "sessions_before_long_break", kind: "integer", label: "Sessions before long break", min: 1, max: 10 },
         { key: "auto_start_work", kind: "toggle", label: "Auto-start work phase" },
         { key: "auto_start_break", kind: "toggle", label: "Auto-start break phase" },
+        { key: "reset_on_restart", kind: "toggle", label: "Reset progress on restart" },
       ],
     },
     {
@@ -57,6 +58,7 @@ export const settingsSchema = defineSchema({
           visibleWhen: (s) => s.fade_when !== "never",
         },
         { key: "auto_collapse", kind: "toggle", label: "Collapse on mouse leave" },
+        { key: "fullscreen_on_focus_end", kind: "toggle", label: "Fullscreen when focus ends" },
       ],
     },
     {

@@ -24,6 +24,8 @@ pub struct Settings {
     pub auto_start_break: bool,
     pub return_to_corner_seconds: u32,
     pub fade_when: String,
+    pub reset_on_restart: bool,
+    pub fullscreen_on_focus_end: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -49,6 +51,8 @@ impl Default for Settings {
             auto_start_break: true,
             return_to_corner_seconds: 0,
             fade_when: "always".to_string(),
+            reset_on_restart: false,
+            fullscreen_on_focus_end: false,
             kit: KitSettings::default(),
         }
     }

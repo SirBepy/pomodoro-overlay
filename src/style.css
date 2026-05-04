@@ -38,18 +38,15 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6vh 4vw 8vh;
+  justify-content: center;
+  gap: clamp(6px, 2.5vh, 24px);
+  padding: clamp(8px, 6vh, 48px) clamp(8px, 4vw, 32px) clamp(10px, 8vh, 56px);
 }
 
-.phase-work {
-  --bg: #ba4949;
-}
-.phase-short {
-  --bg: #38858a;
-}
-.phase-long {
-  --bg: #397097;
-}
+.phase-work  { --bg: #ba4949; }
+.phase-short { --bg: #38858a; }
+.phase-long  { --bg: #397097; }
+.phase-snooze { --bg: #6b35a5; }
 
 .hoverable {
   opacity: 0;
@@ -63,7 +60,7 @@ select {
 
 #app.is-hovered .hoverable {
   opacity: 1;
-  max-height: 20vh;
+  max-height: clamp(40px, 20vh, 80px);
   pointer-events: auto;
 }
 
@@ -75,7 +72,7 @@ select {
 
 .phase-tabs {
   display: flex;
-  gap: 1.5vw;
+  gap: clamp(4px, 1.5vw, 10px);
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
@@ -86,9 +83,9 @@ select {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
   color: #fff;
-  padding: 2vh 3vw;
+  padding: clamp(4px, 2vh, 12px) clamp(6px, 3vw, 18px);
   border-radius: 6px;
-  font-size: 5vw;
+  font-size: clamp(11px, 5vw, 18px);
   cursor: pointer;
   font-weight: 500;
 }
@@ -98,14 +95,18 @@ select {
   border-color: transparent;
 }
 
+/* hide tabs during snooze */
+#app.phase-snooze .top-bar {
+  visibility: hidden;
+}
+
 /* ── Timer ── */
 
 .timer {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28vw;
+  font-size: clamp(60px, 28vw, 200px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
@@ -115,7 +116,7 @@ select {
 }
 
 #app.is-hovered .timer {
-  font-size: 21vw;
+  font-size: clamp(48px, 21vw, 160px);
 }
 
 /* ── Bottom bar ── */
@@ -124,18 +125,23 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4vw;
+  gap: clamp(8px, 4vw, 20px);
   width: 100%;
+}
+
+/* hide play/skip during snooze */
+#app.phase-snooze .bottom-bar {
+  display: none;
 }
 
 .start-btn {
   background: #fff;
   color: var(--bg);
   border: 0;
-  padding: 4vh 9vw;
+  padding: clamp(8px, 4vh, 20px) clamp(16px, 9vw, 48px);
   border-radius: 6px;
   font-weight: 800;
-  font-size: 5vw;
+  font-size: clamp(11px, 5vw, 18px);
   letter-spacing: 0.13em;
   cursor: pointer;
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
@@ -168,9 +174,39 @@ select {
 .skip-btn.visible {
   opacity: 1;
   pointer-events: auto;
-  max-width: 30vw;
-  padding-left: 9vw;
-  padding-right: 9vw;
+  max-width: min(30vw, 140px);
+  padding-left: clamp(12px, 9vw, 48px);
+  padding-right: clamp(12px, 9vw, 48px);
+}
+
+/* ── Snooze button ── */
+
+.snooze-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  padding: clamp(10px, 2.5vh, 20px) clamp(20px, 6vw, 56px);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: clamp(13px, 3.5vw, 22px);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.05s;
+}
+
+.snooze-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.snooze-btn:active {
+  transform: translateY(2px);
+}
+
+.snooze-btn.visible {
+  display: block;
 }
 
 /* ── Resize handles ── */
@@ -183,23 +219,7 @@ select {
   -webkit-app-region: no-drag;
 }
 
-.resize-nw {
-  top: 0;
-  left: 0;
-  cursor: nw-resize;
-}
-.resize-ne {
-  top: 0;
-  right: 0;
-  cursor: ne-resize;
-}
-.resize-sw {
-  bottom: 0;
-  left: 0;
-  cursor: sw-resize;
-}
-.resize-se {
-  bottom: 0;
-  right: 0;
-  cursor: se-resize;
-}
+.resize-nw { top: 0;    left: 0;  cursor: nw-resize; }
+.resize-ne { top: 0;    right: 0; cursor: ne-resize; }
+.resize-sw { bottom: 0; left: 0;  cursor: sw-resize; }
+.resize-se { bottom: 0; right: 0; cursor: se-resize; }
