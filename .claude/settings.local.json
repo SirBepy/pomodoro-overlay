@@ -46,7 +46,8 @@
       "PowerShell(grep *)",
       "Bash(Remove-Item *)",
       "Bash(Get-ChildItem C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src-tauri\\\\src *)",
-      "Bash(cargo test *)"
+      "Bash(cargo test *)",
+      "Bash(reg query *)"
     ]
   }
 }
