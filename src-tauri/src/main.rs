@@ -18,6 +18,86 @@ use tauri_plugin_notification::NotificationExt;
 // SMTC calls inside the commands are gated by #[cfg(target_os = "windows")].
 struct PausedSessionsState(std::sync::Mutex<Vec<String>>);
 
+// Stores the pre-existing NOC_GLOBAL_SETTING_TOASTS_ENABLED value so we
+// can restore it precisely when DND ends.
+struct DndState(std::sync::Mutex<Option<u32>>);
+
+#[cfg(target_os = "windows")]
+mod dnd_impl {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+        HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendNotifyMessageW, HWND_BROADCAST, WM_SETTINGCHANGE,
+    };
+
+    fn wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(Some(0)).collect()
+    }
+
+    /// Returns the current DWORD value of NOC_GLOBAL_SETTING_TOASTS_ENABLED,
+    /// or None if the key/value does not exist (absence == notifications enabled).
+    pub fn read_toast_setting() -> Option<u32> {
+        unsafe {
+            let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
+            let key = wide(
+                "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings",
+            );
+            if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey)
+                != 0
+            {
+                return None;
+            }
+            let val = wide("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            let mut data = 0u32;
+            let mut size = 4u32;
+            let mut kind = 0u32;
+            let ok = RegQueryValueExW(
+                hkey,
+                val.as_ptr(),
+                std::ptr::null_mut(),
+                &mut kind,
+                &mut data as *mut u32 as *mut u8,
+                &mut size,
+            ) == 0;
+            RegCloseKey(hkey);
+            if ok { Some(data) } else { None }
+        }
+    }
+
+    /// Writes NOC_GLOBAL_SETTING_TOASTS_ENABLED and notifies the shell.
+    pub fn write_toast_setting(value: u32) {
+        unsafe {
+            let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
+            let key = wide(
+                "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings",
+            );
+            if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
+                return;
+            }
+            let val = wide("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            RegSetValueExW(
+                hkey,
+                val.as_ptr(),
+                0,
+                REG_DWORD,
+                &value as *const u32 as *const u8,
+                4,
+            );
+            RegCloseKey(hkey);
+            // Tell the shell to re-read notification policy immediately.
+            let param = wide("Policy");
+            SendNotifyMessageW(
+                HWND_BROADCAST,
+                WM_SETTINGCHANGE,
+                0,
+                param.as_ptr() as isize,
+            );
+        }
+    }
+}
+
 #[tauri::command]
 fn get_settings(state: State<SettingsState>) -> Settings {
     state.0.lock().unwrap().clone()
@@ -330,6 +410,31 @@ async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+fn enable_dnd(state: State<'_, DndState>) {
+    #[cfg(target_os = "windows")]
+    {
+        let prev = dnd_impl::read_toast_setting();
+        *state.0.lock().unwrap() = Some(prev.unwrap_or(1));
+        dnd_impl::write_toast_setting(0);
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = state;
+}
+
+#[tauri::command]
+fn disable_dnd(state: State<'_, DndState>) {
+    #[cfg(target_os = "windows")]
+    {
+        let prev = state.0.lock().unwrap().take();
+        if let Some(v) = prev {
+            dnd_impl::write_toast_setting(v);
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = state;
+}
+
 fn compute_corner_position(
     win: &WebviewWindow,
     settings: &Settings,
@@ -495,6 +600,7 @@ fn main() {
             }
             handle.manage(SettingsState(Mutex::new(settings)));
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
+            handle.manage(DndState(std::sync::Mutex::new(None)));
             if let Err(e) = build_tray(&handle) {
                 eprintln!("failed to build tray: {e}");
             }
@@ -517,6 +623,8 @@ fn main() {
             set_window_fullscreen,
             media_pause_if_playing,
             media_resume,
+            enable_dnd,
+            disable_dnd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
