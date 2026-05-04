@@ -123,7 +123,7 @@ function render() {
 function tick() {
   remainingSec -= 1;
   if (remainingSec <= 0) {
-    handlePhaseEnd();
+    handlePhaseEnd().catch((e) => console.warn("handlePhaseEnd error", e));
     return;
   }
   render();
@@ -216,7 +216,7 @@ async function playSound() {
   synthBeep(Math.min(1, Math.max(0, settings.volume)));
 }
 
-function handlePhaseEnd() {
+async function handlePhaseEnd() {
   pauseTimer();
   playSound();
   const ended = phase;
@@ -241,7 +241,7 @@ function handlePhaseEnd() {
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
     enterOverlayFullscreen();
-    if (settings.auto_start_break) startTimer();
+    if (settings.auto_start_break) await startTimer();
   } else {
     // When break ends naturally, always exit fullscreen before returning to focus
     if (ended !== PHASE_WORK && fsState.isOverlayFullscreen) {
@@ -249,7 +249,7 @@ function handlePhaseEnd() {
     }
     const shouldAutoStart =
       next === PHASE_WORK ? settings.auto_start_work : settings.auto_start_break;
-    if (shouldAutoStart) startTimer();
+    if (shouldAutoStart) await startTimer();
   }
 }
 

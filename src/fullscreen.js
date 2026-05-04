@@ -59,7 +59,7 @@ export function startSnooze() {
     if (fsState.snoozeRemaining <= 0) {
       clearInterval(fsState.snoozeHandle);
       fsState.snoozeHandle = null;
-      endSnooze();
+      endSnooze().catch((e) => console.warn("endSnooze error", e));
     } else {
       document.querySelector(".timer").textContent = _host.fmt(fsState.snoozeRemaining);
     }
@@ -67,7 +67,7 @@ export function startSnooze() {
   document.querySelector(".timer").textContent = _host.fmt(fsState.snoozeRemaining);
 }
 
-export function endSnooze() {
+export async function endSnooze() {
   const nextPhase = fsState.pendingBreakPhase ?? "short";
   fsState.pendingBreakPhase = null;
   _host.setPhase(nextPhase);
@@ -76,5 +76,5 @@ export function endSnooze() {
   enterOverlayFullscreen();
   renderSnoozeButton();
   _host.render();
-  if (_host.getSettings()?.auto_start_break) _host.startTimer();
+  if (_host.getSettings()?.auto_start_break) await _host.startTimer();
 }
