@@ -54,6 +54,7 @@ export function startSnooze() {
   fsState.snoozeRemaining = SNOOZE_DURATION;
   _host.setPhase(PHASE_SNOOZE);
   _host.applyPhaseClass();
+  exitOverlayFullscreen();
   renderSnoozeButton();
   fsState.snoozeHandle = setInterval(() => {
     fsState.snoozeRemaining -= 1;
@@ -74,6 +75,7 @@ export function endSnooze() {
   _host.setPhase(nextPhase);
   _host.setRemainingSec(_host.getPhaseDuration(nextPhase));
   _host.applyPhaseClass();
+  enterOverlayFullscreen();
   renderSnoozeButton();
   _host.render();
   if (_host.getSettings()?.auto_start_break) _host.startTimer();
