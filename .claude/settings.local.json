@@ -47,7 +47,13 @@
       "Bash(Remove-Item *)",
       "Bash(Get-ChildItem C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src-tauri\\\\src *)",
       "Bash(cargo test *)",
-      "Bash(reg query *)"
+      "Bash(reg query *)",
+      "PowerShell(Get-ChildItem -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\" -Recurse -ErrorAction SilentlyContinue -Depth 4 | Where-Object { $_.PSChildName -match \"quiet|focus|dnd|notification\" } | Select-Object PSPath)",
+      "PowerShell(Get-ChildItem -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match \"quiet\" } | Select-Object PSChildName)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(\\(Get-ItemProperty -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\\\\`$`$windows.data.notifications.quiethourssettings\\\\Current\"\\).Data | ForEach-Object { \"{0:X2}\" -f $_ } | Join-String -Separator \" \")",
+      "PowerShell($bytes = \\(Get-ItemProperty -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\\\\`$`$windows.data.notifications.quiethourssettings\\\\Current\"\\).Data; \\($bytes | ForEach-Object { \"{0:X2}\" -f $_ }\\) -join \" \")",
+      "PowerShell($keys = \\(Get-Item -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue\\).GetSubKeyNames\\(\\); $keys | Where-Object { $_ -match \"quiet|dnd|focus|donotdisturb\" })"
     ]
   }
 }
