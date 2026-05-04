@@ -246,7 +246,6 @@ async function handlePhaseEnd() {
   }
   setPhaseInternal(next);
   invoke("show_main_window").catch(() => {});
-  invoke("notify", { title, body }).catch(() => {});
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
     await enterOverlayFullscreen();

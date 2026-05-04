@@ -12,7 +12,6 @@ use tauri::{
     WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::ManagerExt;
-use tauri_plugin_notification::NotificationExt;
 
 // Always defined so State<PausedSessionsState> compiles on all platforms.
 // SMTC calls inside the commands are gated by #[cfg(target_os = "windows")].
@@ -170,16 +169,6 @@ fn show_main_window(app: AppHandle) {
             .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
         let _ = t.set_icon(Some(icon));
     }
-}
-
-#[tauri::command]
-fn notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
-    app.notification()
-        .builder()
-        .title(title)
-        .body(body)
-        .show()
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -583,7 +572,6 @@ fn main() {
                 let _ = w.set_focus();
             }
         }))
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -618,7 +606,6 @@ fn main() {
             set_window_size,
             open_settings_window,
             show_main_window,
-            notify,
             pick_sound_file,
             quit_app,
             get_corner_position,
