@@ -28,6 +28,7 @@ let running = false;
 let tickHandle = null;
 let workSessionsCompleted = 0;
 let musicPausedByApp = false;
+let dndEnabledByApp = false;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -143,6 +144,10 @@ async function startTimer() {
       if (paused) musicPausedByApp = true;
     }
   }
+  if (settings?.dnd_on_focus && phase === PHASE_WORK && !dndEnabledByApp) {
+    invoke("enable_dnd").catch(() => {});
+    dndEnabledByApp = true;
+  }
   running = true;
   tickHandle = setInterval(tick, 1000);
   render();
@@ -152,6 +157,10 @@ function pauseTimer() {
   running = false;
   if (tickHandle) clearInterval(tickHandle);
   tickHandle = null;
+  if (dndEnabledByApp) {
+    invoke("disable_dnd").catch(() => {});
+    dndEnabledByApp = false;
+  }
   render();
 }
 
@@ -412,6 +421,10 @@ async function init() {
     remainingSec = phaseDuration(phase);
     workSessionsCompleted = 0;
     musicPausedByApp = false;
+    if (dndEnabledByApp) {
+      invoke("disable_dnd").catch(() => {});
+      dndEnabledByApp = false;
+    }
     fsState.pendingBreakPhase = null;
     fsState.isOverlayFullscreen = false;
     if (returnCornerTimer) {
