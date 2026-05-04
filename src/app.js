@@ -218,7 +218,7 @@ async function playSound() {
 
 async function handlePhaseEnd() {
   pauseTimer();
-  playSound();
+  playSound().catch(() => {});
   const ended = phase;
   let title = "";
   let body = "";
@@ -240,12 +240,12 @@ async function handlePhaseEnd() {
   invoke("notify", { title, body }).catch(() => {});
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
-    enterOverlayFullscreen();
+    await enterOverlayFullscreen();
     if (settings.auto_start_break) await startTimer();
   } else {
     // When break ends naturally, always exit fullscreen before returning to focus
     if (ended !== PHASE_WORK && fsState.isOverlayFullscreen) {
-      exitOverlayFullscreen();
+      await exitOverlayFullscreen();
     }
     const shouldAutoStart =
       next === PHASE_WORK ? settings.auto_start_work : settings.auto_start_break;
@@ -264,9 +264,9 @@ function setPhaseInternal(p) {
 
 function setupControls() {
   $("play").addEventListener("click", () =>
-    running ? pauseTimer() : startTimer(),
+    running ? pauseTimer() : startTimer().catch(() => {}),
   );
-  $("skip").addEventListener("click", () => handlePhaseEnd());
+  $("skip").addEventListener("click", () => handlePhaseEnd().catch(() => {}));
   $("snooze").addEventListener("click", () => startSnooze());
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
