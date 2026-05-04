@@ -74,6 +74,7 @@ export const settingsSchema = defineSchema({
           defaultLabel: "Default tone",
         },
         { key: "pause_music_on_break", kind: "toggle", label: "Pause music on break" },
+        { key: "dnd_on_focus", kind: "toggle", label: "Suppress notifications during focus" },
       ],
     },
   ],
