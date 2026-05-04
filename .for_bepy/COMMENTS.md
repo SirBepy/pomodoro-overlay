@@ -1,5 +1,9 @@
 # Comments for Bepy
 
+## 2026-05-04
+
+- **pause_music_on_break confirmed working in dev mode (v0.3.3).** Root cause of original failure unconfirmed - likely the setting was not saved post-release. COM initialization on `spawn_blocking` threads is a latent risk (unverified); if music pause regresses, that is suspect #1.
+
 ## 2026-05-02
 
 - **Session ended mid-flight.** Pomodoro is at 0.2.1 (kit v1 settings). Plan F Tasks 9+10 (bump to 0.3.0, push, verify auto-update) were never run because user closed before final verification.
