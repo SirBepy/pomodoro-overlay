@@ -35,20 +35,20 @@ mod dnd_impl {
         s.encode_utf16().chain(Some(0)).collect()
     }
 
-    /// Returns the current DWORD value of NOC_GLOBAL_SETTING_TOASTS_ENABLED,
+    /// Returns the current DWORD value of ToastEnabled,
     /// or None if the key/value does not exist (absence == notifications enabled).
     pub fn read_toast_setting() -> Option<u32> {
         unsafe {
             let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
             let key = wide(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings",
+                "Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications",
             );
             if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey)
                 != 0
             {
                 return None;
             }
-            let val = wide("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            let val = wide("ToastEnabled");
             let mut data = 0u32;
             let mut size = 4u32;
             let mut kind = 0u32;
@@ -65,17 +65,17 @@ mod dnd_impl {
         }
     }
 
-    /// Writes NOC_GLOBAL_SETTING_TOASTS_ENABLED and notifies the shell.
+    /// Writes ToastEnabled and notifies the shell.
     pub fn write_toast_setting(value: u32) {
         unsafe {
             let mut hkey: windows_sys::Win32::System::Registry::HKEY = std::ptr::null_mut();
             let key = wide(
-                "Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings",
+                "Software\\Microsoft\\Windows\\CurrentVersion\\PushNotifications",
             );
             if RegOpenKeyExW(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
                 return;
             }
-            let val = wide("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            let val = wide("ToastEnabled");
             let result = RegSetValueExW(
                 hkey,
                 val.as_ptr(),
