@@ -27,9 +27,6 @@ mod dnd_impl {
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
         HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD,
     };
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SendNotifyMessageW, HWND_BROADCAST, WM_SETTINGCHANGE,
-    };
 
     fn wide(s: &str) -> Vec<u16> {
         s.encode_utf16().chain(Some(0)).collect()
@@ -85,17 +82,7 @@ mod dnd_impl {
                 4,
             );
             RegCloseKey(hkey);
-            if result != 0 {
-                return;
-            }
-            // Tell the shell to re-read notification policy immediately.
-            let param = wide("Policy");
-            SendNotifyMessageW(
-                HWND_BROADCAST,
-                WM_SETTINGCHANGE,
-                0,
-                param.as_ptr() as isize,
-            );
+            let _ = result;
         }
     }
 }
