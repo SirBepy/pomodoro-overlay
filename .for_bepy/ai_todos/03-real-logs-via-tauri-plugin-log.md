@@ -1,58 +1,46 @@
 # Wire real logs into kit_copy_logs
 
 ## Goal
+
 Replace the kit's placeholder `kit_copy_logs` (returns "no logs available") with actual log file content. Apps that consume the kit get real "Copy debug logs" functionality with no per-app wiring.
 
 ## Context
-Kit v2 ships `kit_copy_logs` Tauri command in `tauri/settings/src/commands.rs`. Default implementation reads `<app-data>/app.log` if present, else returns the placeholder string.
 
-Pomodoro 0.3.0 (or whichever version is current when this todo runs) does not write any log file. The "Copy debug logs" button (revealed by 5x version tap easter-egg) therefore copies "no logs available" to clipboard. Functional but useless.
+Kit part DONE (2026-05-04): `with_logging()` added to `tauri_kit_settings::lib.rs`. Adds stdout + `<app-data>/app.log` target, 5MB max, KeepAll rotation. Committed to sirbepy_tauri_kit main.
 
-claude_usage_in_taskbar already uses a real logging setup via `tauri-plugin-log`, configured in its main.rs. That's the proven pattern.
+What remains: pomodoro adoption. Pomodoro needs to:
+1. Pull updated kit submodule (`git submodule update --remote vendor/tauri_kit`)
+2. Add `.plugin(tauri_kit_settings::with_logging())` to `src-tauri/src/main.rs` builder chain
+3. Sprinkle `log::info!` / `log::warn!` at meaningful boundaries (timer phase change, settings save, updater check)
+4. Bump pomodoro to 0.4.0 (or next minor)
 
-Spec for kit v2 mentions this as future work: "kit can ship a tauri-plugin-log re-export so apps trivially get logging."
+Current pomodoro version shipped: 0.3.0 (as of this session).
 
 ## Approach
-Two paths, in order of preference:
 
-**Option A — kit ships a logging plugin re-export (recommended):**
-1. In kit's `tauri/settings/Cargo.toml`, add `tauri-plugin-log = "2"` as a dependency (or a feature-gated dependency).
-2. Expose a kit helper: `tauri_kit_settings::with_logging() -> TauriPlugin<Wry>` that returns `tauri_plugin_log::Builder::new()` configured with sensible defaults (target = stdout + `<app-data>/app.log`, max size 5MB, rolling).
-3. Apps call `.plugin(tauri_kit_settings::with_logging())` in their builder chain (like they do for `with_kit_commands`).
-4. `kit_copy_logs` already reads `<app-data>/app.log` — once apps log there via `tauri-plugin-log`, the button works automatically.
+Pull submodule first:
+```
+git submodule update --remote vendor/tauri_kit
+```
 
-**Option B — apps wire their own logging:**
-- Document in the kit README that apps should pass `<app-data>/app.log` as the log target via their own `tauri-plugin-log` config.
-- Kit doesn't add the plugin dep itself.
-- More flexibility but more per-app work.
+Then in main.rs, find the builder chain that calls `.plugin(tauri_kit_settings::with_kit_commands(...))` and add `.plugin(tauri_kit_settings::with_logging())` before or after it.
 
-Recommend Option A.
+Log call sites: look for natural boundaries in main.rs and settings.rs. Minimum 5 distinct events per session.
 
-**Pomodoro adoption (after kit ships A):**
-1. Pull kit submodule
-2. Add `.plugin(tauri_kit_settings::with_logging())` to pomodoro main.rs
-3. Sprinkle `log::info!` / `log::warn!` calls at meaningful boundaries (timer phase change, settings save, updater check)
-4. Bump pomodoro to next minor (e.g. 0.4.0)
-
-**Verification:**
-- Run pomodoro, do a few actions
-- Open settings → About → unlock easter-egg → Copy debug logs → paste into a text file
-- Verify the log contains real entries with timestamps + levels
+Bump version + commit + push to trigger CI.
 
 ## Acceptance
-- [ ] Kit exposes `with_logging()` plugin helper with sensible defaults
-- [ ] Pomodoro registers it and emits at least 5 distinct log events across a normal session
+
+- [ ] Kit submodule updated in pomodoro
+- [ ] Pomodoro registers `with_logging()` and emits at least 5 distinct log events
 - [ ] Copy debug logs button copies real log content (not "no logs available")
-- [ ] Log file rotates correctly under load (>5MB triggers rotation)
-- [ ] No regression in pomodoro startup time (logging shouldn't add visible delay)
+- [ ] Log file at `%APPDATA%\com.sirbepy.pomodoro-overlay\app.log` is created after running dev
+- [ ] CI passes, 0.4.0 release published
 
 ## Verification commands
-```
-# In kit:
-cargo check --workspace
 
-# In pomodoro:
+```
 cd src-tauri && cargo check
 cd .. && npm run tauri dev
-# Then manually exercise the app for ~30 seconds, open settings, copy logs, paste
+# Run app ~30 seconds, open settings, About, tap version 5x, Copy debug logs, paste
 ```
