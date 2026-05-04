@@ -62,7 +62,7 @@ mod dnd_impl {
                 &mut size,
             ) == 0;
             RegCloseKey(hkey);
-            if ok { Some(data) } else { None }
+            if ok && kind == REG_DWORD { Some(data) } else { None }
         }
     }
 
@@ -77,7 +77,7 @@ mod dnd_impl {
                 return;
             }
             let val = wide("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
-            RegSetValueExW(
+            let result = RegSetValueExW(
                 hkey,
                 val.as_ptr(),
                 0,
@@ -86,6 +86,9 @@ mod dnd_impl {
                 4,
             );
             RegCloseKey(hkey);
+            if result != 0 {
+                return;
+            }
             // Tell the shell to re-read notification policy immediately.
             let param = wide("Policy");
             SendNotifyMessageW(
@@ -414,9 +417,12 @@ async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), Strin
 fn enable_dnd(state: State<'_, DndState>) {
     #[cfg(target_os = "windows")]
     {
-        let prev = dnd_impl::read_toast_setting();
-        *state.0.lock().unwrap() = Some(prev.unwrap_or(1));
-        dnd_impl::write_toast_setting(0);
+        let mut guard = state.0.lock().unwrap();
+        if guard.is_none() {
+            let prev = dnd_impl::read_toast_setting();
+            *guard = Some(prev.unwrap_or(1));
+            dnd_impl::write_toast_setting(0);
+        }
     }
     #[cfg(not(target_os = "windows"))]
     let _ = state;
