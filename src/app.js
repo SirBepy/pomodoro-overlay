@@ -94,7 +94,7 @@ function applyVisibility() {
     fadeWhen === "always" || (fadeWhen === "running" && running);
   document.body.style.opacity =
     isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
-  $("app").classList.toggle("is-hovered", isHovered || !running);
+  $("app").classList.toggle("is-hovered", isHovered || (!running && phase !== PHASE_SNOOZE));
 }
 
 function setupHoverOpacity() {
