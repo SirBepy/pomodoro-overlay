@@ -53,7 +53,9 @@
       "PowerShell(Get-Item *)",
       "PowerShell(\\(Get-ItemProperty -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\\\\`$`$windows.data.notifications.quiethourssettings\\\\Current\"\\).Data | ForEach-Object { \"{0:X2}\" -f $_ } | Join-String -Separator \" \")",
       "PowerShell($bytes = \\(Get-ItemProperty -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\\\\`$`$windows.data.notifications.quiethourssettings\\\\Current\"\\).Data; \\($bytes | ForEach-Object { \"{0:X2}\" -f $_ }\\) -join \" \")",
-      "PowerShell($keys = \\(Get-Item -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue\\).GetSubKeyNames\\(\\); $keys | Where-Object { $_ -match \"quiet|dnd|focus|donotdisturb\" })"
+      "PowerShell($keys = \\(Get-Item -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue\\).GetSubKeyNames\\(\\); $keys | Where-Object { $_ -match \"quiet|dnd|focus|donotdisturb\" })",
+      "Bash(powershell *)",
+      "PowerShell(Get-ItemProperty *)"
     ]
   }
 }
