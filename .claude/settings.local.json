@@ -55,7 +55,8 @@
       "PowerShell($bytes = \\(Get-ItemProperty -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\\\\`$`$windows.data.notifications.quiethourssettings\\\\Current\"\\).Data; \\($bytes | ForEach-Object { \"{0:X2}\" -f $_ }\\) -join \" \")",
       "PowerShell($keys = \\(Get-Item -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue\\).GetSubKeyNames\\(\\); $keys | Where-Object { $_ -match \"quiet|dnd|focus|donotdisturb\" })",
       "Bash(powershell *)",
-      "PowerShell(Get-ItemProperty *)"
+      "PowerShell(Get-ItemProperty *)",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src-tauri\\\\src\\\\main.rs\"\\).Count; \\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src\\\\app.js\"\\).Count)"
     ]
   }
 }
