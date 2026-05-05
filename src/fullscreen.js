@@ -26,9 +26,6 @@ export function renderSnoozeButton() {
     fsState.isOverlayFullscreen &&
     (phase === "short" || phase === "long");
   btn.classList.toggle("visible", showSnooze);
-  if (showSnooze) {
-    btn.textContent = "2 more minutes";
-  }
 }
 
 export async function enterOverlayFullscreen() {
