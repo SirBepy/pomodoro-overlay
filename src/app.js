@@ -1,13 +1,13 @@
 import { runAutoUpdateCheck } from "../vendor/tauri_kit/frontend/updater/auto-check";
 import {
   PHASE_SNOOZE,
+  SNOOZE_DURATION,
   fsState,
   initFullscreen,
   renderSnoozeButton,
   enterOverlayFullscreen,
   exitOverlayFullscreen,
   startSnooze,
-  endSnooze,
 } from "./fullscreen.js";
 
 const { invoke } = window.__TAURI__.core;
@@ -62,6 +62,7 @@ const $ = (id) => document.getElementById(id);
 
 function phaseDuration(p) {
   if (!settings) return 25 * 60;
+  if (p === PHASE_SNOOZE) return SNOOZE_DURATION;
   if (p === PHASE_SHORT) return settings.short_break_minutes * 60;
   if (p === PHASE_LONG) return settings.long_break_minutes * 60;
   return settings.work_minutes * 60;
@@ -112,10 +113,9 @@ function setupHoverOpacity() {
 }
 
 function render() {
-  const t = phase === PHASE_SNOOZE ? fmt(fsState.snoozeRemaining) : fmt(remainingSec);
-  document.querySelector(".timer").textContent = t;
+  document.querySelector(".timer").textContent = fmt(remainingSec);
   $("play").textContent = running ? "PAUSE" : "START";
-  $("skip").classList.toggle("visible", running && phase !== PHASE_SNOOZE);
+  $("skip").classList.toggle("visible", running);
   renderSnoozeButton();
   applyVisibility();
   saveState();
@@ -124,7 +124,7 @@ function render() {
 function tick() {
   remainingSec -= 1;
   if (remainingSec <= 0) {
-    handlePhaseEnd().catch((e) => console.warn("handlePhaseEnd error", e));
+    handlePhaseEnd(true).catch((e) => console.warn("handlePhaseEnd error", e));
     return;
   }
   render();
@@ -183,11 +183,71 @@ function setPhase(p) {
 }
 
 let audioCtx = null;
+function getAudioCtx() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playHoverSound() {
+  if (!settings?.sound_enabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(600, t);
+    osc.frequency.linearRampToValueAtTime(950, t + 0.03);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.04, t + 0.005);
+    gain.gain.linearRampToValueAtTime(0, t + 0.03);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.03);
+  } catch (e) {}
+}
+
+function playPressSound() {
+  if (!settings?.sound_enabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(150, t + 0.055);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.2, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.055);
+  } catch (e) {}
+}
+
+function playReleaseSound() {
+  if (!settings?.sound_enabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t = ctx.currentTime;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(480, t);
+    osc.frequency.linearRampToValueAtTime(720, t + 0.028);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.1, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.028);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.028);
+  } catch (e) {}
+}
+
 function synthBeep(volume) {
   try {
-    audioCtx =
-      audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = audioCtx;
+    const ctx = getAudioCtx();
     const playTone = (freq, startOffset, dur) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -225,24 +285,30 @@ async function playSound() {
   synthBeep(Math.min(1, Math.max(0, settings.volume)));
 }
 
-async function handlePhaseEnd() {
+async function handlePhaseEnd(natural = false) {
   pauseTimer();
-  playSound().catch(() => {});
+  if (natural) playSound().catch(() => {});
   const ended = phase;
-  let title = "";
-  let body = "";
+
+  if (ended === PHASE_SNOOZE) {
+    const next = fsState.pendingBreakPhase ?? PHASE_SHORT;
+    fsState.pendingBreakPhase = null;
+    setPhaseInternal(next);
+    invoke("show_main_window").catch(() => {});
+    await enterOverlayFullscreen();
+    renderSnoozeButton();
+    if (settings.auto_start_break) await startTimer();
+    return;
+  }
+
   let next;
   if (ended === PHASE_WORK) {
     workSessionsCompleted += 1;
     const isLong =
       workSessionsCompleted % settings.sessions_before_long_break === 0;
     next = isLong ? PHASE_LONG : PHASE_SHORT;
-    title = "Focus done!";
-    body = isLong ? "Long break time." : "Short break time.";
   } else {
     next = PHASE_WORK;
-    title = "Break done!";
-    body = "Back to focus.";
   }
   setPhaseInternal(next);
   invoke("show_main_window").catch(() => {});
@@ -251,7 +317,6 @@ async function handlePhaseEnd() {
     await enterOverlayFullscreen();
     if (settings.auto_start_break) await startTimer();
   } else {
-    // When break ends naturally, always exit fullscreen before returning to focus
     if (ended !== PHASE_WORK && fsState.isOverlayFullscreen) {
       await exitOverlayFullscreen();
     }
@@ -270,6 +335,12 @@ function setPhaseInternal(p) {
   render();
 }
 
+function addButtonSounds(btn) {
+  btn.addEventListener("mouseenter", playHoverSound);
+  btn.addEventListener("mousedown", playPressSound);
+  btn.addEventListener("mouseup", playReleaseSound);
+}
+
 function setupControls() {
   $("play").addEventListener("click", () =>
     running ? pauseTimer() : startTimer().catch(() => {}),
@@ -279,6 +350,7 @@ function setupControls() {
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
+  [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupHoverOpacity();
   setupResizeHandles();
 }
