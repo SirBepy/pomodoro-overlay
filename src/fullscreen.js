@@ -44,37 +44,12 @@ export async function exitOverlayFullscreen() {
 }
 
 export function startSnooze() {
-  if (fsState.snoozeHandle) {
-    clearInterval(fsState.snoozeHandle);
-    fsState.snoozeHandle = null;
-  }
   fsState.pendingBreakPhase = _host.getPhase();
-  fsState.snoozeRemaining = SNOOZE_DURATION;
   _host.setPhase(PHASE_SNOOZE);
+  _host.setRemainingSec(SNOOZE_DURATION);
   _host.applyPhaseClass();
   exitOverlayFullscreen();
   renderSnoozeButton();
-  fsState.snoozeHandle = setInterval(() => {
-    fsState.snoozeRemaining -= 1;
-    if (fsState.snoozeRemaining <= 0) {
-      clearInterval(fsState.snoozeHandle);
-      fsState.snoozeHandle = null;
-      endSnooze().catch((e) => console.warn("endSnooze error", e));
-    } else {
-      document.querySelector(".timer").textContent = _host.fmt(fsState.snoozeRemaining);
-    }
-  }, 1000);
-  document.querySelector(".timer").textContent = _host.fmt(fsState.snoozeRemaining);
-}
-
-export async function endSnooze() {
-  const nextPhase = fsState.pendingBreakPhase ?? "short";
-  fsState.pendingBreakPhase = null;
-  _host.setPhase(nextPhase);
-  _host.setRemainingSec(_host.getPhaseDuration(nextPhase));
-  _host.applyPhaseClass();
-  enterOverlayFullscreen();
-  renderSnoozeButton();
   _host.render();
-  if (_host.getSettings()?.auto_start_break) await _host.startTimer();
+  _host.startTimer();
 }
