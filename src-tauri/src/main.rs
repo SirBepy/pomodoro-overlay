@@ -503,8 +503,16 @@ async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), Strin
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+fn dnd_backup_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_local_data_dir()
+        .ok()
+        .map(|d| d.join("dnd_backup.bin"))
+}
+
 #[tauri::command]
-fn enable_dnd(state: State<'_, DndState>) {
+fn enable_dnd(app: AppHandle, state: State<'_, DndState>) {
     #[cfg(target_os = "windows")]
     {
         let mut guard = state.0.lock().unwrap();
@@ -519,6 +527,16 @@ fn enable_dnd(state: State<'_, DndState>) {
             log::warn!("enable_dnd: failed to build AlarmsOnly blob; skipping");
             return;
         };
+        // Persist the original BEFORE flipping the registry. If the app dies
+        // between this write and disable_dnd, startup recovery restores from disk.
+        if let Some(p) = dnd_backup_path(&app) {
+            if let Some(parent) = p.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if let Err(e) = std::fs::write(&p, &original) {
+                log::warn!("enable_dnd: failed to write backup file: {e}");
+            }
+        }
         if dnd_impl::write_blob(&new_blob) {
             *guard = Some(original);
             dnd_impl::kick_wpn_user_service();
@@ -527,11 +545,11 @@ fn enable_dnd(state: State<'_, DndState>) {
         }
     }
     #[cfg(not(target_os = "windows"))]
-    let _ = state;
+    let _ = (app, state);
 }
 
 #[tauri::command]
-fn disable_dnd(state: State<'_, DndState>) {
+fn disable_dnd(app: AppHandle, state: State<'_, DndState>) {
     #[cfg(target_os = "windows")]
     {
         let prev = state.0.lock().unwrap().take();
@@ -539,13 +557,16 @@ fn disable_dnd(state: State<'_, DndState>) {
             let refreshed = dnd_impl::refresh_filetime(&blob);
             if dnd_impl::write_blob(&refreshed) {
                 dnd_impl::kick_wpn_user_service();
+                if let Some(p) = dnd_backup_path(&app) {
+                    let _ = std::fs::remove_file(p);
+                }
             } else {
                 log::warn!("disable_dnd: failed to restore CloudStore blob");
             }
         }
     }
     #[cfg(not(target_os = "windows"))]
-    let _ = state;
+    let _ = (app, state);
 }
 
 fn compute_corner_position(
@@ -713,6 +734,31 @@ fn main() {
             handle.manage(SettingsState(Mutex::new(settings)));
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
             handle.manage(DndState(std::sync::Mutex::new(None)));
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(p) = dnd_backup_path(&handle) {
+                    if p.exists() {
+                        match std::fs::read(&p) {
+                            Ok(blob) if !blob.is_empty() => {
+                                let refreshed = dnd_impl::refresh_filetime(&blob);
+                                if dnd_impl::write_blob(&refreshed) {
+                                    dnd_impl::kick_wpn_user_service();
+                                    log::info!(
+                                        "dnd: recovered registry from prior session backup"
+                                    );
+                                } else {
+                                    log::warn!(
+                                        "dnd: backup recovery failed to write CloudStore blob"
+                                    );
+                                }
+                            }
+                            Ok(_) => log::warn!("dnd: backup file empty; skipping"),
+                            Err(e) => log::warn!("dnd: failed to read backup: {e}"),
+                        }
+                        let _ = std::fs::remove_file(&p);
+                    }
+                }
+            }
             if let Err(e) = build_tray(&handle) {
                 eprintln!("failed to build tray: {e}");
             }
