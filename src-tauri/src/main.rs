@@ -178,6 +178,27 @@ mod dnd_impl {
         stamp_filetime(&mut out);
         out
     }
+
+    /// WpnUserService caches the active quiet-hours profile in memory; without
+    /// a kick, registry edits are not picked up until logoff. Restarting the
+    /// per-user service (WpnUserService_<hash>) is the documented workaround.
+    /// Hidden powershell shell-out keeps this contained to ~one call per timer.
+    pub fn kick_wpn_user_service() {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let _ = Command::new("powershell.exe")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                "Get-Service -Name 'WpnUserService_*' -ErrorAction SilentlyContinue | Restart-Service -Force -ErrorAction SilentlyContinue",
+            ])
+            .output();
+    }
 }
 
 #[tauri::command]
@@ -500,6 +521,7 @@ fn enable_dnd(state: State<'_, DndState>) {
         };
         if dnd_impl::write_blob(&new_blob) {
             *guard = Some(original);
+            dnd_impl::kick_wpn_user_service();
         } else {
             log::warn!("enable_dnd: failed to write CloudStore blob");
         }
@@ -515,7 +537,9 @@ fn disable_dnd(state: State<'_, DndState>) {
         let prev = state.0.lock().unwrap().take();
         if let Some(blob) = prev {
             let refreshed = dnd_impl::refresh_filetime(&blob);
-            if !dnd_impl::write_blob(&refreshed) {
+            if dnd_impl::write_blob(&refreshed) {
+                dnd_impl::kick_wpn_user_service();
+            } else {
                 log::warn!("disable_dnd: failed to restore CloudStore blob");
             }
         }
