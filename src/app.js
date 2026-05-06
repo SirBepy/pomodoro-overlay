@@ -104,14 +104,7 @@ function enterEditMode() {
   if (editMode) return;
   editMode = true;
   editSnapshot = remainingSec;
-  const m = Math.floor(remainingSec / 60);
-  const s = remainingSec % 60;
-  editBuffer = [
-    String(Math.floor(m / 10)),
-    String(m % 10),
-    String(Math.floor(s / 10)),
-    String(s % 10),
-  ];
+  editBuffer = ["0","0","0","0"];
   renderEditMode();
   const timerEl = document.querySelector(".timer");
   timerEl.classList.remove("timer-editable");
