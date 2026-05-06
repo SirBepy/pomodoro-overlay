@@ -1,4 +1,6 @@
 // @ts-nocheck
+import "@phosphor-icons/web/regular";
+import "@phosphor-icons/web/fill";
 import { runAutoUpdateCheck } from "../vendor/tauri_kit/frontend/updater/auto-check";
 import { initSounds, playHoverSound, playPressSound, playReleaseSound, playSound } from "./shared/sounds";
 import {
