@@ -31,6 +31,10 @@ let workSessionsCompleted = 0;
 let musicPausedByApp = false;
 let dndEnabledByApp = false;
 
+let editMode = false;
+let editBuffer = ["0","0","0","0"];
+let editSnapshot = 0;
+
 const STATE_KEY = "pomodoro-overlay-state";
 
 function saveState() {
@@ -87,6 +91,49 @@ function fmt(sec) {
   return `${m}:${ss}`;
 }
 
+function timerIsEditable() {
+  return !!(settings?.editable_when_paused && !running && phase !== PHASE_SNOOZE);
+}
+
+function renderEditMode() {
+  document.querySelector(".timer").textContent =
+    `${editBuffer[0]}${editBuffer[1]}:${editBuffer[2]}${editBuffer[3]}`;
+}
+
+function enterEditMode() {
+  if (editMode) return;
+  editMode = true;
+  editSnapshot = remainingSec;
+  const m = Math.floor(remainingSec / 60);
+  const s = remainingSec % 60;
+  editBuffer = [
+    String(Math.floor(m / 10)),
+    String(m % 10),
+    String(Math.floor(s / 10)),
+    String(s % 10),
+  ];
+  renderEditMode();
+  const timerEl = document.querySelector(".timer");
+  timerEl.classList.remove("timer-editable");
+  timerEl.classList.add("timer-editing");
+  timerEl.focus();
+}
+
+function exitEditMode(confirm) {
+  if (!editMode) return;
+  editMode = false;
+  const timerEl = document.querySelector(".timer");
+  timerEl.classList.remove("timer-editing");
+  if (confirm) {
+    const mm = parseInt(editBuffer[0] + editBuffer[1], 10);
+    const ss = parseInt(editBuffer[2] + editBuffer[3], 10);
+    remainingSec = Math.min(Math.max(mm * 60 + ss, 1), 5999);
+  } else {
+    remainingSec = editSnapshot;
+  }
+  render();
+}
+
 let isHovered = false;
 
 function applyVisibility() {
@@ -114,7 +161,11 @@ function setupHoverOpacity() {
 }
 
 function render() {
-  document.querySelector(".timer").textContent = fmt(remainingSec);
+  const timerEl = document.querySelector(".timer");
+  if (!editMode) {
+    timerEl.textContent = fmt(remainingSec);
+  }
+  timerEl.classList.toggle("timer-editable", timerIsEditable() && !editMode);
   $("play").textContent = running ? "PAUSE" : "START";
   $("skip").classList.toggle("visible", running);
   renderSnoozeButton();
@@ -251,6 +302,35 @@ function setupControls() {
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupHoverOpacity();
   setupResizeHandles();
+  setupTimerEdit();
+}
+
+function setupTimerEdit() {
+  const timerEl = document.querySelector(".timer");
+  timerEl.setAttribute("tabindex", "0");
+
+  timerEl.addEventListener("click", () => {
+    if (timerIsEditable()) enterEditMode();
+  });
+
+  timerEl.addEventListener("keydown", (e) => {
+    if (!editMode) return;
+    if (e.key >= "0" && e.key <= "9") {
+      e.preventDefault();
+      editBuffer = [...editBuffer.slice(1), e.key];
+      renderEditMode();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      exitEditMode(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      exitEditMode(false);
+    }
+  });
+
+  timerEl.addEventListener("blur", () => {
+    if (editMode) exitEditMode(true);
+  });
 }
 
 let resizeSaveTimer = null;
@@ -373,6 +453,7 @@ async function init() {
   setupControls();
   await setupReturnToCorner();
   await listen("settings-updated", async () => {
+    if (editMode) exitEditMode(true);
     const wasRunning = running;
     settings = await invoke("get_settings");
     if (!wasRunning) remainingSec = phaseDuration(phase);

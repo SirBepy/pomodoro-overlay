@@ -12,6 +12,7 @@ export const settingsSchema = defineSchema({
         { key: "auto_start_work", kind: "toggle", label: "Auto-start work phase" },
         { key: "auto_start_break", kind: "toggle", label: "Auto-start break phase" },
         { key: "reset_on_restart", kind: "toggle", label: "Reset progress on restart" },
+        { key: "editable_when_paused", kind: "toggle", label: "Edit timer while paused" },
       ],
     },
     {

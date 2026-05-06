@@ -149,6 +149,18 @@ select {
   pointer-events: none;
 }
 
+.timer.timer-editable {
+  pointer-events: auto;
+  cursor: text;
+}
+
+.timer.timer-editing {
+  pointer-events: auto;
+  cursor: text;
+  opacity: 0.75;
+  outline: none;
+}
+
 @media (max-width: 200px), (max-height: 200px) {
   #app.is-hovered .timer {
     transform: translate(-50%, -70%);
