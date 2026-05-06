@@ -1,0 +1,14 @@
+{
+  "title": "Pomodoro Overlay",
+  "shortDescription": "A minimal always-on-top Pomodoro timer that fades out when you're not looking.",
+  "type": "Desktop",
+  "status": "in-progress",
+  "languages": ["TypeScript", "JavaScript", "Rust", "CSS"],
+  "frameworks": ["Tauri"],
+  "tools": ["Vite", "lit-html"],
+  "liveUrl": null,
+  "mainImage": null,
+  "images": [],
+  "year": 2026,
+  "impressiveness": 4
+}
