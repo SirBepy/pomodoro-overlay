@@ -213,6 +213,33 @@ fn main() {
             if let Err(e) = build_tray(&handle) {
                 eprintln!("failed to build tray: {e}");
             }
+            #[cfg(debug_assertions)]
+            {
+                let dev_handle = handle.clone();
+                std::thread::spawn(move || {
+                    // Wait for Vite to finish starting before we begin watching
+                    std::thread::sleep(std::time::Duration::from_secs(8));
+                    loop {
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        let alive = std::net::TcpStream::connect_timeout(
+                            &"127.0.0.1:3001".parse().unwrap(),
+                            std::time::Duration::from_millis(500),
+                        ).is_ok();
+                        if !alive {
+                            // Double-check before exiting (Vite may be momentarily restarting)
+                            std::thread::sleep(std::time::Duration::from_secs(3));
+                            let still_dead = std::net::TcpStream::connect_timeout(
+                                &"127.0.0.1:3001".parse().unwrap(),
+                                std::time::Duration::from_millis(500),
+                            ).is_err();
+                            if still_dead {
+                                dev_handle.exit(0);
+                                return;
+                            }
+                        }
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
