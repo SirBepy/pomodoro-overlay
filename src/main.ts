@@ -11,10 +11,19 @@ import {
   exitOverlayFullscreen,
   startSnooze,
 } from "./shared/fullscreen";
+import {
+  setupReturnToCorner,
+  clearReturnCornerTimer,
+  getReturnCornerTimer,
+} from "./views/timer/return-to-corner";
+import {
+  isEditMode,
+  exitEditMode as exitEditModeImpl,
+  setupTimerEdit,
+} from "./views/timer/timer-edit";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
-const { getCurrentWindow } = window.__TAURI__.window;
 
 // Fire-and-forget. Reads __kit_auto_update from settings to decide behavior.
 runAutoUpdateCheck();
@@ -31,11 +40,6 @@ let tickHandle = null;
 let workSessionsCompleted = 0;
 let musicPausedByApp = false;
 let dndEnabledByApp = false;
-
-let editMode = false;
-let editBuffer = ["0","0","0","0"];
-let editSnapshot = 0;
-let editDirty = false;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -97,46 +101,6 @@ function timerIsEditable() {
   return !!(settings?.editable_when_paused && !running && phase !== PHASE_SNOOZE);
 }
 
-function renderEditMode() {
-  document.querySelector(".timer").textContent =
-    `${editBuffer[0]}${editBuffer[1]}:${editBuffer[2]}${editBuffer[3]}`;
-}
-
-function enterEditMode() {
-  if (editMode) return;
-  editMode = true;
-  editDirty = false;
-  editSnapshot = remainingSec;
-  const m = Math.floor(remainingSec / 60);
-  const s = remainingSec % 60;
-  editBuffer = [
-    String(Math.floor(m / 10)),
-    String(m % 10),
-    String(Math.floor(s / 10)),
-    String(s % 10),
-  ];
-  renderEditMode();
-  const timerEl = document.querySelector(".timer");
-  timerEl.classList.remove("timer-editable");
-  timerEl.classList.add("timer-editing");
-  timerEl.focus();
-}
-
-function exitEditMode(confirm) {
-  if (!editMode) return;
-  editMode = false;
-  const timerEl = document.querySelector(".timer");
-  timerEl.classList.remove("timer-editing");
-  if (confirm) {
-    const mm = parseInt(editBuffer[0] + editBuffer[1], 10);
-    const ss = parseInt(editBuffer[2] + editBuffer[3], 10);
-    remainingSec = Math.min(Math.max(mm * 60 + ss, 1), 5999);
-  } else {
-    remainingSec = editSnapshot;
-  }
-  render();
-}
-
 let isHovered = false;
 
 function applyVisibility() {
@@ -165,15 +129,19 @@ function setupHoverOpacity() {
 
 function render() {
   const timerEl = document.querySelector(".timer");
-  if (!editMode) {
+  if (!isEditMode()) {
     timerEl.textContent = fmt(remainingSec);
   }
-  timerEl.classList.toggle("timer-editable", timerIsEditable() && !editMode);
+  timerEl.classList.toggle("timer-editable", timerIsEditable() && !isEditMode());
   $("play").textContent = running ? "PAUSE" : "START";
   $("skip").classList.toggle("visible", running);
   renderSnoozeButton();
   applyVisibility();
   saveState();
+}
+
+function exitEditMode(confirm) {
+  exitEditModeImpl(confirm, (v) => { remainingSec = v; }, render);
 }
 
 function tick() {
@@ -305,38 +273,11 @@ function setupControls() {
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupHoverOpacity();
   setupResizeHandles();
-  setupTimerEdit();
-}
-
-function setupTimerEdit() {
-  const timerEl = document.querySelector(".timer");
-  timerEl.setAttribute("tabindex", "0");
-
-  timerEl.addEventListener("click", () => {
-    if (timerIsEditable()) enterEditMode();
-  });
-
-  timerEl.addEventListener("keydown", (e) => {
-    if (!editMode) return;
-    if (e.key >= "0" && e.key <= "9") {
-      e.preventDefault();
-      if (!editDirty) {
-        editDirty = true;
-        editBuffer = ["0","0","0","0"];
-      }
-      editBuffer = [...editBuffer.slice(1), e.key];
-      renderEditMode();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      exitEditMode(true);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      exitEditMode(false);
-    }
-  });
-
-  timerEl.addEventListener("blur", () => {
-    if (editMode) exitEditMode(true);
+  setupTimerEdit({
+    timerIsEditable,
+    getRemainingSec: () => remainingSec,
+    setRemainingSec: (v) => { remainingSec = v; },
+    render,
   });
 }
 
@@ -367,77 +308,6 @@ function setupResizeHandles() {
   });
 }
 
-let returnCornerTimer = null;
-let returnCornerSetup = false;
-let returnCornerInterval = null;
-let isAnimating = false;
-
-function lerp(a, b, t) {
-  return Math.round(a + (b - a) * t);
-}
-
-async function animateToCorner() {
-  isAnimating = true;
-  if (returnCornerInterval) {
-    clearInterval(returnCornerInterval);
-    returnCornerInterval = null;
-  }
-  const [tx, ty] = await invoke("get_corner_position");
-  const win = getCurrentWindow();
-  const pos = await win.outerPosition();
-  if (Math.abs(pos.x - tx) <= 1 && Math.abs(pos.y - ty) <= 1) {
-    isAnimating = false;
-    return;
-  }
-  const startX = pos.x;
-  const startY = pos.y;
-  const duration = 400;
-  const fps = 60;
-  const steps = Math.round((duration / 1000) * fps);
-  let step = 0;
-  returnCornerInterval = setInterval(async () => {
-    try {
-      step++;
-      const t = step / steps;
-      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-      const x = lerp(startX, tx, ease);
-      const y = lerp(startY, ty, ease);
-      await invoke("set_window_position", { x, y });
-      if (step >= steps) {
-        clearInterval(returnCornerInterval);
-        returnCornerInterval = null;
-        isAnimating = false;
-        await invoke("set_window_position", { x: tx, y: ty });
-      }
-    } catch (e) {
-      console.warn("animateToCorner error", e);
-      clearInterval(returnCornerInterval);
-      returnCornerInterval = null;
-      isAnimating = false;
-    }
-  }, 1000 / fps);
-}
-
-function scheduleReturnToCorner(delaySec) {
-  if (returnCornerTimer) clearTimeout(returnCornerTimer);
-  returnCornerTimer = setTimeout(() => {
-    returnCornerTimer = null;
-    animateToCorner();
-  }, delaySec * 1000);
-}
-
-async function setupReturnToCorner() {
-  if (returnCornerSetup) return;
-  returnCornerSetup = true;
-  const win = getCurrentWindow();
-  await win.onMoved(() => {
-    if (isAnimating) return;
-    if (!settings || settings.return_to_corner_seconds === 0) return;
-    if (fsState.isOverlayFullscreen) return;
-    scheduleReturnToCorner(settings.return_to_corner_seconds);
-  });
-}
-
 async function init() {
   settings = await invoke("get_settings");
   initSounds(() => settings);
@@ -458,15 +328,14 @@ async function init() {
   render();
   if (shouldResume) startTimer();
   setupControls();
-  await setupReturnToCorner();
+  await setupReturnToCorner(() => settings);
   await listen("settings-updated", async () => {
-    if (editMode) exitEditMode(true);
+    if (isEditMode()) exitEditMode(true);
     const wasRunning = running;
     settings = await invoke("get_settings");
     if (!wasRunning) remainingSec = phaseDuration(phase);
-    if (settings.return_to_corner_seconds === 0 && returnCornerTimer) {
-      clearTimeout(returnCornerTimer);
-      returnCornerTimer = null;
+    if (settings.return_to_corner_seconds === 0 && getReturnCornerTimer()) {
+      clearReturnCornerTimer();
     }
     renderSnoozeButton();
     render();
@@ -485,10 +354,7 @@ async function init() {
     }
     fsState.pendingBreakPhase = null;
     fsState.isOverlayFullscreen = false;
-    if (returnCornerTimer) {
-      clearTimeout(returnCornerTimer);
-      returnCornerTimer = null;
-    }
+    clearReturnCornerTimer();
     try {
       await invoke("set_window_size", { expanded: true });
     } catch (e) {
