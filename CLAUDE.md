@@ -5,7 +5,7 @@ Deploy: github-actions (tauri release on push to main)
 
 ## Structure
 
-src/index.html, src/app.js, src/style.css, src/settings.html, src/settings/main.ts, src/settings/schema.ts, src-tauri/ (Rust backend)
+src/index.html, src/main.ts, src/styles/base.css, src/settings.html, src/shared/ (sounds, fullscreen), src/views/settings/ (settings.ts, schema.ts), src-tauri/ (Rust backend)
 
 ## Rules
 

@@ -6,9 +6,16 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data: asset: https://asset.localhost; media-src 'self' data: asset: https://asset.localhost; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; style-src-elem 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' data: https://unpkg.com https://cdn.jsdelivr.net; connect-src 'self' http://ipc.localhost https://ipc.localhost" />
   <title>Pomodoro Overlay</title>
+  <meta name="description" content="A lightweight desktop overlay timer that stays on top of your work, built with Tauri." />
+  <meta property="og:title" content="Pomodoro Overlay" />
+  <meta property="og:description" content="A lightweight desktop overlay timer that stays on top of your work, built with Tauri." />
+  <meta property="og:image" content="/favicon.png" />
+  <meta property="og:url" content="https://github.com/SirBepy/pomodoro-overlay" />
+  <meta name="twitter:card" content="summary" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="icon" type="image/png" href="/favicon.png" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="styles/base.css" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 
@@ -42,7 +49,7 @@
   <div class="resize-handle resize-sw" data-dir="SouthWest"></div>
   <div class="resize-handle resize-se" data-dir="SouthEast"></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="main.ts"></script>
 </body>
 
 </html>

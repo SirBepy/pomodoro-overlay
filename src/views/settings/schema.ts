@@ -1,4 +1,4 @@
-import { defineSchema } from "../../vendor/tauri_kit/frontend/settings/schema";
+import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
 
 export const settingsSchema = defineSchema({
   sections: [

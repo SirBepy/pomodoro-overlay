@@ -1,15 +1,17 @@
 #![windows_subsystem = "windows"]
 
-mod commands;
+mod ipc;
 mod settings;
+mod state;
 
-use commands::{
+use ipc::commands::{
     disable_dnd, enable_dnd, get_corner_position, get_settings, is_cursor_over_window,
     media_pause_if_playing, media_resume, open_settings_window, pick_sound_file, quit_app,
     save_settings, save_window_size, set_window_fullscreen, set_window_position, set_window_size,
     show_main_window, start_resize,
 };
 use settings::{Settings, SettingsState};
+use state::{DndState, PausedSessionsState};
 use std::sync::Mutex;
 use tauri::{
     image::Image,
@@ -18,9 +20,6 @@ use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow,
 };
 use tauri_plugin_autostart::ManagerExt;
-
-pub(crate) struct PausedSessionsState(pub(crate) std::sync::Mutex<Vec<String>>);
-pub(crate) struct DndState(pub(crate) std::sync::Mutex<Option<Vec<u8>>>);
 
 pub(crate) fn compute_corner_position(
     win: &WebviewWindow,
@@ -193,7 +192,7 @@ fn main() {
                     if p.exists() {
                         match std::fs::read(&p) {
                             Ok(blob) if !blob.is_empty() => {
-                                if commands::recover_dnd_backup(&blob) {
+                                if ipc::commands::recover_dnd_backup(&blob) {
                                     log::info!(
                                         "dnd: recovered registry from prior session backup"
                                     );

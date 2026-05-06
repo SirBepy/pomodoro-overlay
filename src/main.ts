@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { runAutoUpdateCheck } from "../vendor/tauri_kit/frontend/updater/auto-check";
-import { initSounds, playHoverSound, playPressSound, playReleaseSound, playSound } from "./sounds.js";
+import { initSounds, playHoverSound, playPressSound, playReleaseSound, playSound } from "./shared/sounds";
 import {
   PHASE_SNOOZE,
   SNOOZE_DURATION,
@@ -9,7 +10,7 @@ import {
   enterOverlayFullscreen,
   exitOverlayFullscreen,
   startSnooze,
-} from "./fullscreen.js";
+} from "./shared/fullscreen";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;

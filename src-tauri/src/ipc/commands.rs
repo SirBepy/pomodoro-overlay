@@ -1,5 +1,6 @@
 use crate::settings::{self, Settings, SettingsState};
-use crate::{DndState, PausedSessionsState, apply_autostart, compute_corner_position, resize_and_anchor};
+use crate::state::{DndState, PausedSessionsState};
+use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
 use tauri::{image::Image, AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "windows")]
@@ -251,7 +252,7 @@ pub fn show_main_window(app: AppHandle) {
         let icon = app
             .default_window_icon()
             .cloned()
-            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../../icons/32x32.png")).unwrap());
         let _ = t.set_icon(Some(icon));
     }
 }

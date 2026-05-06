@@ -1,5 +1,5 @@
-import "../../vendor/tauri_kit/frontend/settings/styles.css";
-import { renderSettingsPage } from "../../vendor/tauri_kit/frontend/settings/renderer";
+import "../../../vendor/tauri_kit/frontend/settings/styles.css";
+import { renderSettingsPage } from "../../../vendor/tauri_kit/frontend/settings/renderer";
 import { settingsSchema, systemInline } from "./schema";
 
 const root = document.getElementById("root");
