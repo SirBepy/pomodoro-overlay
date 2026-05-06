@@ -5,6 +5,10 @@
   user-select: none;
 }
 
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 html,
 body {
   width: 100%;
