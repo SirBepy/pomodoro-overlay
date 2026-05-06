@@ -34,6 +34,7 @@ let dndEnabledByApp = false;
 let editMode = false;
 let editBuffer = ["0","0","0","0"];
 let editSnapshot = 0;
+let editDirty = false;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -103,8 +104,16 @@ function renderEditMode() {
 function enterEditMode() {
   if (editMode) return;
   editMode = true;
+  editDirty = false;
   editSnapshot = remainingSec;
-  editBuffer = ["0","0","0","0"];
+  const m = Math.floor(remainingSec / 60);
+  const s = remainingSec % 60;
+  editBuffer = [
+    String(Math.floor(m / 10)),
+    String(m % 10),
+    String(Math.floor(s / 10)),
+    String(s % 10),
+  ];
   renderEditMode();
   const timerEl = document.querySelector(".timer");
   timerEl.classList.remove("timer-editable");
@@ -310,6 +319,10 @@ function setupTimerEdit() {
     if (!editMode) return;
     if (e.key >= "0" && e.key <= "9") {
       e.preventDefault();
+      if (!editDirty) {
+        editDirty = true;
+        editBuffer = ["0","0","0","0"];
+      }
       editBuffer = [...editBuffer.slice(1), e.key];
       renderEditMode();
     } else if (e.key === "Enter") {
