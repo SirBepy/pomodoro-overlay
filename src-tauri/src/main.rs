@@ -220,17 +220,16 @@ fn main() {
                     std::thread::sleep(std::time::Duration::from_secs(8));
                     loop {
                         std::thread::sleep(std::time::Duration::from_secs(2));
-                        let alive = std::net::TcpStream::connect_timeout(
-                            &"127.0.0.1:3001".parse().unwrap(),
-                            std::time::Duration::from_millis(500),
-                        ).is_ok();
+                        let vite_up = |timeout_ms: u64| {
+                            let t = std::time::Duration::from_millis(timeout_ms);
+                            std::net::TcpStream::connect_timeout(&"127.0.0.1:3001".parse().unwrap(), t).is_ok()
+                            || std::net::TcpStream::connect_timeout(&"[::1]:3001".parse().unwrap(), t).is_ok()
+                        };
+                        let alive = vite_up(500);
                         if !alive {
                             // Double-check before exiting (Vite may be momentarily restarting)
                             std::thread::sleep(std::time::Duration::from_secs(3));
-                            let still_dead = std::net::TcpStream::connect_timeout(
-                                &"127.0.0.1:3001".parse().unwrap(),
-                                std::time::Duration::from_millis(500),
-                            ).is_err();
+                            let still_dead = !vite_up(500);
                             if still_dead {
                                 dev_handle.exit(0);
                                 return;
