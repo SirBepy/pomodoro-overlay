@@ -30,12 +30,14 @@ export function renderSnoozeButton() {
 
 export async function enterOverlayFullscreen() {
   fsState.isOverlayFullscreen = true;
+  document.body.classList.add("is-fullscreen");
   await invoke("set_window_fullscreen", { fullscreen: true }).catch(() => {});
   renderSnoozeButton();
 }
 
 export async function exitOverlayFullscreen() {
   fsState.isOverlayFullscreen = false;
+  document.body.classList.remove("is-fullscreen");
   await invoke("set_window_fullscreen", { fullscreen: false }).catch(() => {});
   renderSnoozeButton();
 }

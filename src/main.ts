@@ -291,6 +291,7 @@ function setupResizeHandles() {
       e.preventDefault();
       // User took manual control; exit fullscreen tracking
       fsState.isOverlayFullscreen = false;
+      document.body.classList.remove("is-fullscreen");
       renderSnoozeButton();
       invoke("start_resize", { direction: el.dataset.dir }).catch((err) =>
         console.warn("start_resize failed", err),
@@ -356,6 +357,7 @@ async function init() {
     }
     fsState.pendingBreakPhase = null;
     fsState.isOverlayFullscreen = false;
+    document.body.classList.remove("is-fullscreen");
     clearReturnCornerTimer();
     try {
       await invoke("set_window_size", { expanded: true });

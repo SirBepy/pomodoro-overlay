@@ -25,6 +25,14 @@ body {
   transition: opacity 0.3s ease;
 }
 
+body.is-fullscreen {
+  -webkit-app-region: no-drag;
+}
+
+body.is-fullscreen .resize-handle {
+  display: none;
+}
+
 button,
 input,
 select {
