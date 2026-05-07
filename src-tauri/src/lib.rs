@@ -75,12 +75,10 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-    let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &hide, &settings_item, &sep, &quit])?;
+    let menu = Menu::with_items(app, &[&settings_item, &sep, &quit])?;
 
     let icon: Image = match app.default_window_icon() {
         Some(i) => i.clone(),
@@ -93,29 +91,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-                if let Some(t) = app.tray_by_id("main-tray") {
-                    let icon = app.default_window_icon()
-                        .cloned()
-                        .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
-                    let _ = t.set_icon(Some(icon));
-                }
-            }
-            "hide" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
-                }
-                if let Some(t) = app.tray_by_id("main-tray") {
-                    let base = app.default_window_icon()
-                        .cloned()
-                        .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
-                    let _ = t.set_icon(Some(dimmed_icon(&base)));
-                }
-            }
             "settings" => {
                 let _ = open_settings_window(app.clone());
             }
