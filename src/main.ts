@@ -64,6 +64,10 @@ function loadState() {
     workSessionsCompleted = s.workSessionsCompleted ?? 0;
     const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
     remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(phase)) - elapsed);
+    if (remainingSec <= 10) {
+      remainingSec = phaseDuration(phase);
+      return false;
+    }
     return !!s.running && remainingSec > 0;
   } catch (e) {
     console.warn("loadState failed", e);
