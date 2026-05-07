@@ -56,7 +56,20 @@
       "PowerShell($keys = \\(Get-Item -Path \"HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\CloudStore\\\\Store\\\\Cache\\\\DefaultAccount\" -ErrorAction SilentlyContinue\\).GetSubKeyNames\\(\\); $keys | Where-Object { $_ -match \"quiet|dnd|focus|donotdisturb\" })",
       "Bash(powershell *)",
       "PowerShell(Get-ItemProperty *)",
-      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src-tauri\\\\src\\\\main.rs\"\\).Count; \\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src\\\\app.js\"\\).Count)"
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src-tauri\\\\src\\\\main.rs\"\\).Count; \\(Get-Content \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\src\\\\app.js\"\\).Count)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('scripts',{}\\).keys\\(\\)\\)\\)\")",
+      "PowerShell(Get-CimInstance *)",
+      "Bash(gh workflow *)",
+      "Bash(python *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(Get-Content *)",
+      "Bash(Test-Path *)",
+      "Bash(git submodule *)",
+      "Bash(git restore *)",
+      "Bash(git apply *)"
     ]
   }
 }
