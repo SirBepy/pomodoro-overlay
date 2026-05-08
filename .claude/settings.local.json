@@ -69,7 +69,9 @@
       "Bash(Test-Path *)",
       "Bash(git submodule *)",
       "Bash(git restore *)",
-      "Bash(git apply *)"
+      "Bash(git apply *)",
+      "Bash(ls .claude/commit-style.md)",
+      "Bash(ls .claude/skills/run-tests/SKILL.md)"
     ]
   }
 }
