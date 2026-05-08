@@ -201,10 +201,6 @@ function setPhase(p) {
     fsState.pendingBreakPhase = null;
   }
   pauseTimer();
-  // Exiting to focus via tab click: restore original window size
-  if (p === PHASE_WORK && fsState.isOverlayFullscreen) {
-    exitOverlayFullscreen();
-  }
   phase = p;
   remainingSec = phaseDuration(phase);
   applyPhaseClass();
@@ -296,6 +292,7 @@ function setupResizeHandles() {
       // User took manual control; exit fullscreen tracking
       fsState.isOverlayFullscreen = false;
       document.body.classList.remove("is-fullscreen");
+      invoke("disable_keep_awake").catch(() => {});
       renderSnoozeButton();
       invoke("start_resize", { direction: el.dataset.dir }).catch((err) =>
         console.warn("start_resize failed", err),
@@ -336,6 +333,14 @@ async function init() {
   if (shouldResume) startTimer();
   setupControls();
   await setupReturnToCorner(() => settings);
+  await listen("main-window-hidden", () => {
+    invoke("disable_keep_awake").catch(() => {});
+  });
+  await listen("main-window-shown", () => {
+    if (fsState.isOverlayFullscreen && settings?.keep_awake_during_fullscreen) {
+      invoke("enable_keep_awake").catch(() => {});
+    }
+  });
   await listen("settings-updated", async () => {
     if (isEditMode()) exitEditMode(true);
     const wasRunning = running;
@@ -362,6 +367,7 @@ async function init() {
     fsState.pendingBreakPhase = null;
     fsState.isOverlayFullscreen = false;
     document.body.classList.remove("is-fullscreen");
+    invoke("disable_keep_awake").catch(() => {});
     clearReturnCornerTimer();
     try {
       await invoke("set_window_size", { expanded: true });

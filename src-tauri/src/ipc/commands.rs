@@ -208,6 +208,42 @@ pub fn is_cursor_over_window(app: AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub fn enable_keep_awake() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::System::Power::{
+            SetThreadExecutionState, ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED,
+        };
+        unsafe {
+            let prev = SetThreadExecutionState(
+                ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED,
+            );
+            if prev == 0 {
+                return Err("SetThreadExecutionState returned 0".into());
+            }
+        }
+        log::info!("keep_awake: enabled");
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn disable_keep_awake() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::System::Power::{SetThreadExecutionState, ES_CONTINUOUS};
+        unsafe {
+            let prev = SetThreadExecutionState(ES_CONTINUOUS);
+            if prev == 0 {
+                return Err("SetThreadExecutionState returned 0".into());
+            }
+        }
+        log::info!("keep_awake: disabled");
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn media_pause_if_playing(state: State<'_, PausedSessionsState>) -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {

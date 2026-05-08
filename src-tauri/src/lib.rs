@@ -3,10 +3,10 @@ mod settings;
 mod state;
 
 use ipc::commands::{
-    get_corner_position, get_settings, is_cursor_over_window, media_pause_if_playing,
-    media_resume, open_settings_window, pick_sound_file, quit_app, save_settings,
-    save_window_size, set_window_fullscreen, set_window_position, set_window_size,
-    show_main_window, start_resize,
+    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
+    is_cursor_over_window, media_pause_if_playing, media_resume, open_settings_window,
+    pick_sound_file, quit_app, save_settings, save_window_size, set_window_fullscreen,
+    set_window_position, set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
 use settings::{Settings, SettingsState};
@@ -16,7 +16,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow,
 };
 use tauri_plugin_autostart::ManagerExt;
 
@@ -111,9 +111,11 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                     let visible = w.is_visible().unwrap_or(false);
                     if visible {
                         let _ = w.hide();
+                        let _ = app.emit("main-window-hidden", ());
                     } else {
                         let _ = w.show();
                         let _ = w.set_focus();
+                        let _ = app.emit("main-window-shown", ());
                     }
                     if let Some(t) = app.tray_by_id("main-tray") {
                         let base = app.default_window_icon()
@@ -232,6 +234,8 @@ pub fn run() {
             media_resume,
             enable_dnd,
             disable_dnd,
+            enable_keep_awake,
+            disable_keep_awake,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

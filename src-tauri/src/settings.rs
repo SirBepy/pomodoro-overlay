@@ -27,6 +27,7 @@ pub struct Settings {
     pub reset_on_restart: bool,
     pub editable_when_paused: bool,
     pub fullscreen_on_focus_end: bool,
+    pub keep_awake_during_fullscreen: bool,
     pub pause_music_on_break: bool,
     pub dnd_on_focus: bool,
     #[serde(flatten)]
@@ -57,6 +58,7 @@ impl Default for Settings {
             reset_on_restart: false,
             editable_when_paused: false,
             fullscreen_on_focus_end: false,
+            keep_awake_during_fullscreen: true,
             pause_music_on_break: false,
             dnd_on_focus: false,
             kit: KitSettings::default(),

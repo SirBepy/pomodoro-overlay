@@ -60,6 +60,7 @@ export const settingsSchema = defineSchema({
         },
         { key: "auto_collapse", kind: "toggle", label: "Collapse on mouse leave" },
         { key: "fullscreen_on_focus_end", kind: "toggle", label: "Fullscreen when focus ends" },
+        { key: "keep_awake_during_fullscreen", kind: "toggle", label: "Keep PC awake during fullscreen" },
       ],
     },
     {
