@@ -22,7 +22,7 @@ body {
 
 body {
   -webkit-app-region: drag;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.18s ease;
 }
 
 body.is-fullscreen {

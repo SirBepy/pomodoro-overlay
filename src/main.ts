@@ -121,13 +121,15 @@ function applyVisibility() {
   const fadeWhen = settings.fade_when ?? "always";
   const shouldFade =
     fadeWhen === "always" || (fadeWhen === "running" && running);
-  if (clickThroughActive() && isHovered) {
+  const fadingForClickThrough = clickThroughActive() && isHovered;
+  if (fadingForClickThrough) {
     document.body.style.opacity = "0";
   } else {
     document.body.style.opacity =
       isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
   }
-  $("app").classList.toggle("is-hovered", isHovered || (!running && phase !== PHASE_SNOOZE));
+  const expanded = !fadingForClickThrough && (isHovered || (!running && phase !== PHASE_SNOOZE));
+  $("app").classList.toggle("is-hovered", expanded);
 }
 
 async function syncClickThrough() {
