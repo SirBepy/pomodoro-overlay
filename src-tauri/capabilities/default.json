@@ -25,6 +25,8 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "updater:default",
-    "dialog:allow-ask"
+    "dialog:allow-ask",
+    "opener:default",
+    "opener:allow-open-url"
   ]
 }
