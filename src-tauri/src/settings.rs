@@ -30,6 +30,7 @@ pub struct Settings {
     pub keep_awake_during_fullscreen: bool,
     pub pause_music_on_break: bool,
     pub dnd_on_focus: bool,
+    pub click_through_modifier: String,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -61,6 +62,7 @@ impl Default for Settings {
             keep_awake_during_fullscreen: true,
             pause_music_on_break: false,
             dnd_on_focus: false,
+            click_through_modifier: "none".to_string(),
             kit: KitSettings::default(),
         }
     }

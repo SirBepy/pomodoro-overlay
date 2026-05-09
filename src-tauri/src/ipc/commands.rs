@@ -1,5 +1,5 @@
 use crate::settings::{self, Settings, SettingsState};
-use crate::state::PausedSessionsState;
+use crate::state::{PausedSessionsState, TrayPlayPauseItem};
 use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
 use tauri::{image::Image, AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -241,6 +241,44 @@ pub fn disable_keep_awake() -> Result<(), String> {
         log::info!("keep_awake: disabled");
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_click_through(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let win = app
+        .get_webview_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    win.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn is_modifier_held(modifier: String) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+            GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT,
+        };
+        let vk: i32 = match modifier.as_str() {
+            "alt" => VK_MENU as i32,
+            "ctrl" => VK_CONTROL as i32,
+            "shift" => VK_SHIFT as i32,
+            _ => return false,
+        };
+        unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = modifier;
+        false
+    }
+}
+
+#[tauri::command]
+pub fn set_tray_running(state: State<'_, TrayPlayPauseItem>, running: bool) -> Result<(), String> {
+    state
+        .0
+        .set_text(if running { "Pause" } else { "Start" })
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -108,27 +108,59 @@ function timerIsEditable() {
 }
 
 let isHovered = false;
+let modifierHeld = false;
+let isClickThrough = false;
+
+function clickThroughActive() {
+  const mod = settings?.click_through_modifier ?? "none";
+  return running && mod !== "none" && !modifierHeld;
+}
 
 function applyVisibility() {
   if (!settings) return;
   const fadeWhen = settings.fade_when ?? "always";
   const shouldFade =
     fadeWhen === "always" || (fadeWhen === "running" && running);
-  document.body.style.opacity =
-    isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
+  if (clickThroughActive() && isHovered) {
+    document.body.style.opacity = "0";
+  } else {
+    document.body.style.opacity =
+      isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
+  }
   $("app").classList.toggle("is-hovered", isHovered || (!running && phase !== PHASE_SNOOZE));
+}
+
+async function syncClickThrough() {
+  const desired = clickThroughActive();
+  if (desired === isClickThrough) return;
+  isClickThrough = desired;
+  try {
+    await invoke("set_click_through", { enabled: desired });
+  } catch (e) {
+    console.warn("set_click_through failed", e);
+  }
 }
 
 function setupHoverOpacity() {
   setInterval(async () => {
     try {
-      const over = await invoke("is_cursor_over_window");
-      if (over !== isHovered) {
+      const mod = settings?.click_through_modifier ?? "none";
+      const heldPromise = mod === "none"
+        ? Promise.resolve(false)
+        : invoke("is_modifier_held", { modifier: mod });
+      const [over, held] = await Promise.all([
+        invoke("is_cursor_over_window"),
+        heldPromise,
+      ]);
+      const changed = over !== isHovered || held !== modifierHeld;
+      if (changed) {
         isHovered = over;
+        modifierHeld = held;
         applyVisibility();
+        syncClickThrough();
       }
     } catch (e) {
-      console.warn("is_cursor_over_window failed", e);
+      console.warn("hover/modifier poll failed", e);
     }
   }, 150);
 }
@@ -179,6 +211,8 @@ async function startTimer() {
   }
   running = true;
   tickHandle = setInterval(tick, 1000);
+  invoke("set_tray_running", { running: true }).catch(() => {});
+  syncClickThrough();
   render();
 }
 
@@ -190,6 +224,8 @@ function pauseTimer() {
     invoke("disable_dnd").catch(() => {});
     dndEnabledByApp = false;
   }
+  invoke("set_tray_running", { running: false }).catch(() => {});
+  syncClickThrough();
   render();
 }
 
@@ -333,6 +369,10 @@ async function init() {
   if (shouldResume) startTimer();
   setupControls();
   await setupReturnToCorner(() => settings);
+  await listen("tray-toggle-play", () => {
+    if (running) pauseTimer();
+    else startTimer().catch(() => {});
+  });
   await listen("main-window-hidden", () => {
     invoke("disable_keep_awake").catch(() => {});
   });
@@ -349,6 +389,7 @@ async function init() {
     if (settings.return_to_corner_seconds === 0 && getReturnCornerTimer()) {
       clearReturnCornerTimer();
     }
+    syncClickThrough();
     renderSnoozeButton();
     render();
   });

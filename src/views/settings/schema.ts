@@ -143,6 +143,19 @@ export const settingsSchema = defineSchema({
               tooltip:
                 "Shrink the overlay to a compact strip when your mouse leaves. Hover to expand.",
             },
+            {
+              key: "click_through_modifier",
+              kind: "select",
+              label: "Click-through while running",
+              options: [
+                { value: "none", label: "Off" },
+                { value: "alt", label: "Hold Alt to interact" },
+                { value: "ctrl", label: "Hold Ctrl to interact" },
+                { value: "shift", label: "Hold Shift to interact" },
+              ],
+              tooltip:
+                "While the timer runs, clicks pass through the overlay so you can use windows beneath it. Hold the chosen key to interact with the overlay. Off = always interactive.",
+            },
           ],
         },
       ],

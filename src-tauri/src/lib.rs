@@ -4,13 +4,14 @@ mod state;
 
 use ipc::commands::{
     disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
-    is_cursor_over_window, media_pause_if_playing, media_resume, open_settings_window,
-    pick_sound_file, quit_app, save_settings, save_window_size, set_window_fullscreen,
-    set_window_position, set_window_size, show_main_window, start_resize,
+    is_cursor_over_window, is_modifier_held, media_pause_if_playing, media_resume,
+    open_settings_window, pick_sound_file, quit_app, save_settings, save_window_size,
+    set_click_through, set_tray_running, set_window_fullscreen, set_window_position,
+    set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
 use settings::{Settings, SettingsState};
-use state::{DndState, PausedSessionsState};
+use state::{DndState, PausedSessionsState, TrayPlayPauseItem};
 use std::sync::Mutex;
 use tauri::{
     image::Image,
@@ -74,11 +75,16 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
     Image::new_owned(rgba, icon.width(), icon.height())
 }
 
-fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
+    let play_pause = MenuItem::with_id(app, "play_pause", "Start", true, None::<&str>)?;
+    let sep_top = PredefinedMenuItem::separator(app)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&settings_item, &sep, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[&play_pause, &sep_top, &settings_item, &sep, &quit],
+    )?;
 
     let icon: Image = match app.default_window_icon() {
         Some(i) => i.clone(),
@@ -93,6 +99,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "settings" => {
                 let _ = open_settings_window(app.clone());
+            }
+            "play_pause" => {
+                let _ = app.emit("tray-toggle-play", ());
             }
             "quit" => {
                 app.exit(0);
@@ -128,7 +137,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
-    Ok(())
+    Ok(play_pause)
 }
 
 pub fn run() {
@@ -185,8 +194,11 @@ pub fn run() {
                     }
                 }
             }
-            if let Err(e) = build_tray(&handle) {
-                eprintln!("failed to build tray: {e}");
+            match build_tray(&handle) {
+                Ok(play_pause) => {
+                    handle.manage(TrayPlayPauseItem(play_pause));
+                }
+                Err(e) => eprintln!("failed to build tray: {e}"),
             }
             #[cfg(debug_assertions)]
             {
@@ -236,6 +248,9 @@ pub fn run() {
             disable_dnd,
             enable_keep_awake,
             disable_keep_awake,
+            set_click_through,
+            is_modifier_held,
+            set_tray_running,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
