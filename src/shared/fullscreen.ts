@@ -35,6 +35,7 @@ export async function enterOverlayFullscreen() {
   if (_host?.getSettings()?.keep_awake_during_fullscreen) {
     invoke("enable_keep_awake").catch(() => {});
   }
+  _host?.refreshClickThrough?.();
   renderSnoozeButton();
 }
 
@@ -43,6 +44,7 @@ export async function exitOverlayFullscreen() {
   document.body.classList.remove("is-fullscreen");
   await invoke("set_window_fullscreen", { fullscreen: false }).catch(() => {});
   invoke("disable_keep_awake").catch(() => {});
+  _host?.refreshClickThrough?.();
   renderSnoozeButton();
 }
 

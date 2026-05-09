@@ -113,7 +113,7 @@ let isClickThrough = false;
 
 function clickThroughActive() {
   const mod = settings?.click_through_modifier ?? "none";
-  return running && mod !== "none" && !modifierHeld;
+  return running && mod !== "none" && !modifierHeld && !fsState.isOverlayFullscreen;
 }
 
 function applyVisibility() {
@@ -365,6 +365,10 @@ async function init() {
     applyPhaseClass,
     startTimer,
     render,
+    refreshClickThrough: () => {
+      applyVisibility();
+      syncClickThrough();
+    },
   });
   applyPhaseClass();
   render();
