@@ -306,7 +306,13 @@ function setupControls() {
     running ? pauseTimer() : startTimer().catch(() => {}),
   );
   $("skip").addEventListener("click", () => handlePhaseEnd().catch(() => {}));
-  $("snooze").addEventListener("click", () => startSnooze());
+  $("snooze").addEventListener("click", () => {
+    if (settings?.pause_music_on_break && musicPausedByApp) {
+      invoke("media_resume").catch(() => {});
+      musicPausedByApp = false;
+    }
+    startSnooze();
+  });
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
