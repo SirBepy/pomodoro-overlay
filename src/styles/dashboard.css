@@ -2,18 +2,24 @@
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--kit-bg);
+  border-bottom: 1px solid var(--kit-border);
 }
 .window-tab {
   background: transparent;
   border: none;
-  color: inherit;
+  color: var(--kit-text-dim);
   padding: 6px 12px;
   cursor: pointer;
   border-radius: 4px;
 }
+.window-tab:hover {
+  background: var(--kit-bg-hover);
+  color: var(--kit-text);
+}
 .window-tab.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--kit-bg-alt);
+  color: var(--kit-text);
   font-weight: 600;
 }
 
@@ -22,16 +28,20 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: var(--kit-bg);
+  color: var(--kit-text);
+  min-height: 100vh;
 }
 .card {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--kit-bg-alt);
+  border: 1px solid var(--kit-border);
   border-radius: 8px;
   padding: 14px;
 }
 .card-label {
   font-size: 10px;
   letter-spacing: 0.08em;
-  opacity: 0.7;
+  color: var(--kit-text-dim);
   margin-bottom: 8px;
 }
 .today-grid {
@@ -42,15 +52,16 @@
 .today-grid .big {
   font-size: 20px;
   font-weight: 600;
+  color: var(--kit-text);
 }
 .today-grid .small {
   font-size: 11px;
-  opacity: 0.6;
+  color: var(--kit-text-dim);
 }
 .card-footer {
   margin-top: 10px;
   font-size: 11px;
-  opacity: 0.6;
+  color: var(--kit-text-dim);
 }
 .idle-card .idle-row {
   display: flex;
@@ -59,6 +70,7 @@
 .idle-card .big {
   font-size: 22px;
   font-weight: 600;
+  color: var(--kit-text);
   margin-top: 4px;
 }
 .chart-row {
@@ -78,7 +90,7 @@
   flex: 1;
   display: flex;
   flex-direction: column-reverse;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--kit-bg-hover);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -88,7 +100,7 @@
 .bar-label {
   text-align: center;
   font-size: 10px;
-  opacity: 0.6;
+  color: var(--kit-text-dim);
 }
 .dashboard-footer {
   display: flex;
@@ -96,11 +108,11 @@
   padding-top: 12px;
 }
 .danger-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 80, 80, 0.4);
-  color: rgba(255, 120, 120, 0.9);
+  background: var(--kit-danger-bg);
+  border: 1px solid var(--kit-danger-border);
+  color: var(--kit-danger);
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
 }
-.danger-btn:hover { background: rgba(255, 80, 80, 0.1); }
+.danger-btn:hover { filter: brightness(1.15); }

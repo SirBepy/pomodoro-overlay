@@ -1,9 +1,14 @@
 import "@phosphor-icons/web/regular";
 import "@phosphor-icons/web/fill";
+import "../../../vendor/tauri_kit/frontend/settings/styles.css";
 import "../../styles/dashboard.css";
+import { applyTheme } from "../../../vendor/tauri_kit/frontend/settings/pages/theme";
 import { mountSettings } from "../settings/settings";
 import { mountDashboard } from "../dashboard/dashboard";
 import { renderTabs, RouteName } from "./tabs";
+
+// @ts-ignore - Tauri global at runtime
+const { invoke } = window.__TAURI__.core;
 
 const root = document.getElementById("root");
 if (!root) throw new Error("window root missing");
@@ -31,4 +36,13 @@ function mount() {
 }
 
 window.addEventListener("hashchange", mount);
-mount();
+
+(async () => {
+  try {
+    const s = await invoke<any>("get_settings");
+    applyTheme(s?.__kit_theme ?? "system");
+  } catch {
+    applyTheme("system");
+  }
+  mount();
+})();

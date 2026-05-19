@@ -60,6 +60,9 @@ select {
 .phase-long {
   --bg: #397097;
 }
+.phase-other {
+  --bg: #4a8b3f;
+}
 .phase-snooze {
   --bg: #6b35a5;
 }
