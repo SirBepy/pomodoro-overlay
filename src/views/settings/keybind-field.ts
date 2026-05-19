@@ -37,6 +37,7 @@ function buildAccelerator(e: KeyboardEvent): string | null {
  * Escape cancels. Direct DOM manipulation avoids needing a re-render trigger.
  */
 function startCapture(btn: HTMLButtonElement, onChange: (v: unknown) => void): void {
+  if (btn.classList.contains("recording")) return;
   btn.textContent = "Press a key…";
   btn.classList.add("recording");
 
@@ -52,6 +53,7 @@ function startCapture(btn: HTMLButtonElement, onChange: (v: unknown) => void): v
 
   function stop(): void {
     document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("blur", stop);
     if (document.contains(btn)) {
       btn.textContent = "Record";
       btn.classList.remove("recording");
@@ -59,6 +61,7 @@ function startCapture(btn: HTMLButtonElement, onChange: (v: unknown) => void): v
   }
 
   document.addEventListener("keydown", onKey, true);
+  window.addEventListener("blur", stop, { once: true });
 }
 
 /** Creates a custom keybind field definition for use in the settings schema. */
