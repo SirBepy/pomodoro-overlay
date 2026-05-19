@@ -1,0 +1,18 @@
+.window-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.window-tab {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.window-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
