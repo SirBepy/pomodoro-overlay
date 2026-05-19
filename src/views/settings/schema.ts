@@ -195,10 +195,15 @@ export const settingsSchema = defineSchema({
             },
             {
               key: "pause_music_on_break",
-              kind: "toggle",
-              label: "Pause music on break",
+              kind: "select",
+              label: "Pause music on",
               tooltip:
-                "When a focus session ends, send a media-pause to your active player.",
+                "never: disabled. not running focused: pause whenever focus isn't actively running (manual pause or break). on break: pause only when a break phase starts.",
+              options: [
+                { value: "never", label: "never" },
+                { value: "not_running_focused", label: "not running focused" },
+                { value: "on_break", label: "on break" },
+              ],
             },
           ],
         },

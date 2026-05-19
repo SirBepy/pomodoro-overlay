@@ -198,7 +198,8 @@ async function startTimer() {
   if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
     exitOverlayFullscreen();
   }
-  if (settings?.pause_music_on_break) {
+  const pmob = settings?.pause_music_on_break;
+  if (pmob === "on_break" || pmob === "not_running_focused") {
     if (phase === PHASE_WORK && musicPausedByApp) {
       invoke("media_resume").catch(() => {});
       musicPausedByApp = false;
@@ -225,6 +226,9 @@ function pauseTimer() {
   if (dndEnabledByApp) {
     invoke("disable_dnd").catch(() => {});
     dndEnabledByApp = false;
+  }
+  if (settings?.pause_music_on_break === "not_running_focused" && phase === PHASE_WORK && !musicPausedByApp) {
+    invoke("media_pause_if_playing").then((paused) => { if (paused) musicPausedByApp = true; }).catch(() => {});
   }
   invoke("set_tray_running", { running: false }).catch(() => {});
   syncClickThrough();
@@ -307,7 +311,7 @@ function setupControls() {
   );
   $("skip").addEventListener("click", () => handlePhaseEnd().catch(() => {}));
   $("snooze").addEventListener("click", () => {
-    if (settings?.pause_music_on_break && musicPausedByApp) {
+    if (settings?.pause_music_on_break !== "never" && musicPausedByApp) {
       invoke("media_resume").catch(() => {});
       musicPausedByApp = false;
     }

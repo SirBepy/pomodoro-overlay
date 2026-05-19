@@ -28,7 +28,7 @@ pub struct Settings {
     pub editable_when_paused: bool,
     pub fullscreen_on_focus_end: bool,
     pub keep_awake_during_fullscreen: bool,
-    pub pause_music_on_break: bool,
+    pub pause_music_on_break: String,
     pub dnd_on_focus: bool,
     pub click_through_modifier: String,
     #[serde(flatten)]
@@ -60,7 +60,7 @@ impl Default for Settings {
             editable_when_paused: false,
             fullscreen_on_focus_end: false,
             keep_awake_during_fullscreen: true,
-            pause_music_on_break: false,
+            pause_music_on_break: "never".to_string(),
             dnd_on_focus: false,
             click_through_modifier: "none".to_string(),
             kit: KitSettings::default(),
