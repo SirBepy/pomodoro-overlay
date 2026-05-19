@@ -44,6 +44,8 @@ let tickHandle = null;
 let workSessionsCompleted = 0;
 let musicPausedByApp = false;
 let dndEnabledByApp = false;
+let intervalStartMs = 0;        // wall-clock when current run-interval began
+let intervalStartRemainingSec = 0; // remainingSec snapshot at that moment
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -192,12 +194,13 @@ function exitEditMode(confirm) {
 }
 
 function tick() {
+  const elapsedSec = Math.floor((Date.now() - intervalStartMs) / 1000);
   if (phase === PHASE_OTHER) {
-    remainingSec += 1; // stopwatch: count up
+    remainingSec = intervalStartRemainingSec + elapsedSec; // stopwatch: count up
     render();
     return;
   }
-  remainingSec -= 1;
+  remainingSec = Math.max(0, intervalStartRemainingSec - elapsedSec);
   if (remainingSec <= 0) {
     handlePhaseEnd(true).catch((e) => console.warn("handlePhaseEnd error", e));
     return;
@@ -229,6 +232,8 @@ async function startTimer() {
   const configured = phase === PHASE_OTHER ? null : phaseDuration(phase);
   await openEvent(phase, configured, /* resumeSession */ true);
   running = true;
+  intervalStartMs = Date.now();
+  intervalStartRemainingSec = remainingSec;
   tickHandle = setInterval(tick, 1000);
   invoke("set_tray_running", { running: true }).catch(() => {});
   syncClickThrough();
