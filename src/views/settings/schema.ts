@@ -1,4 +1,5 @@
 import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
+import { keybindField } from "./keybind-field";
 
 export const settingsSchema = defineSchema({
   sections: [
@@ -225,6 +226,18 @@ export const settingsSchema = defineSchema({
           pickerCommand: "pick_sound_file",
           defaultLabel: "Default tone",
           tooltip: "Pick a .wav or .mp3 to play instead of the default chime.",
+        },
+      ],
+    },
+    {
+      title: "Keybinds",
+      groups: [
+        {
+          title: "Timer controls",
+          fields: [
+            keybindField({ key: "keybind_pause", label: "Pause / Resume" }),
+            keybindField({ key: "keybind_skip", label: "Skip phase" }),
+          ],
         },
       ],
     },
