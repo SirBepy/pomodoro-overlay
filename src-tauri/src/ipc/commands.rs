@@ -14,6 +14,10 @@ pub fn save_settings(
     state: State<'_, SettingsState>,
     settings: Settings,
 ) -> Result<(), String> {
+    let (old_pause, old_skip) = {
+        let s = state.0.lock().unwrap();
+        (s.keybind_pause.clone(), s.keybind_skip.clone())
+    };
     {
         let mut s = state.0.lock().unwrap();
         *s = settings.clone();
@@ -26,6 +30,13 @@ pub fn save_settings(
         let _ = win.set_always_on_top(settings.always_on_top);
     }
     apply_autostart(&app, settings.autostart);
+    crate::hotkeys::register_hotkeys(
+        &app,
+        old_pause.as_deref(),
+        old_skip.as_deref(),
+        settings.keybind_pause.as_deref(),
+        settings.keybind_skip.as_deref(),
+    );
     Ok(())
 }
 
