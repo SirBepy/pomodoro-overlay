@@ -71,3 +71,61 @@ pub fn persist(app: &AppHandle, file: &StatsFile) -> Result<(), String> {
     std::fs::rename(&tmp, &path).map_err(|e| format!("rename: {e}"))?;
     Ok(())
 }
+
+pub fn append(app: &AppHandle, mut event: StatsEvent) -> Result<(), String> {
+    if event.session_id.is_empty() {
+        event.session_id = uuid::Uuid::new_v4().to_string();
+    }
+    let state = app.state::<StatsState>();
+    let mut file = state.0.lock().map_err(|e| format!("lock: {e}"))?;
+    file.events.push(event);
+    persist(app, &file)
+}
+
+pub fn close_open(app: &AppHandle, end_ms: i64, ended_by: String) -> Result<(), String> {
+    let state = app.state::<StatsState>();
+    let mut file = state.0.lock().map_err(|e| format!("lock: {e}"))?;
+    if let Some(last) = file.events.last_mut() {
+        if last.end_ms.is_none() {
+            last.end_ms = Some(end_ms.max(last.start_ms));
+            last.ended_by = Some(ended_by);
+        }
+    }
+    persist(app, &file)
+}
+
+pub fn range(app: &AppHandle, start_ms: i64, end_ms: i64) -> Result<Vec<StatsEvent>, String> {
+    let state = app.state::<StatsState>();
+    let file = state.0.lock().map_err(|e| format!("lock: {e}"))?;
+    let mut out = Vec::new();
+    for e in &file.events {
+        let e_end = e.end_ms.unwrap_or(end_ms);
+        if e_end >= start_ms && e.start_ms <= end_ms {
+            out.push(e.clone());
+        }
+    }
+    Ok(out)
+}
+
+pub fn reset(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<StatsState>();
+    let mut file = state.0.lock().map_err(|e| format!("lock: {e}"))?;
+    *file = StatsFile::default();
+    persist(app, &file)
+}
+
+pub fn close_open_on_startup(app: &AppHandle, fallback_end_ms: i64) {
+    let state = app.state::<StatsState>();
+    let mut file = match state.0.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    if let Some(last) = file.events.last_mut() {
+        if last.end_ms.is_none() {
+            last.end_ms = Some(fallback_end_ms.max(last.start_ms));
+            last.ended_by = Some("app_close".into());
+            log::info!("stats: closed dangling open event on startup");
+        }
+    }
+    let _ = persist(app, &file);
+}
