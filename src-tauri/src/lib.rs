@@ -1,3 +1,4 @@
+mod hotkeys;
 mod ipc;
 mod settings;
 mod state;
@@ -148,6 +149,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
@@ -162,6 +164,7 @@ pub fn run() {
             let settings = settings::load(&handle);
             log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
             apply_autostart(&handle, settings.autostart);
+            hotkeys::register_hotkeys(&handle, None, None, settings.keybind_pause.as_deref(), settings.keybind_skip.as_deref());
             if let Some(win) = handle.get_webview_window("main") {
                 let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
