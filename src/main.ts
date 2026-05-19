@@ -435,6 +435,13 @@ async function init() {
     renderSnoozeButton();
     render();
   });
+  await listen("hotkey-pause", () => {
+    if (running) pauseTimer();
+    else startTimer().catch(() => {});
+  });
+  await listen("hotkey-skip", () => {
+    handlePhaseEnd().catch(() => {});
+  });
 }
 
 init();
