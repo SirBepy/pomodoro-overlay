@@ -33,6 +33,7 @@ runAutoUpdateCheck();
 const PHASE_WORK = "work";
 const PHASE_SHORT = "short";
 const PHASE_LONG = "long";
+const PHASE_OTHER = "other";
 
 let settings = null;
 let phase = PHASE_WORK;
@@ -63,6 +64,11 @@ function loadState() {
     if (phase === PHASE_SNOOZE) { phase = PHASE_WORK; return false; }
     workSessionsCompleted = s.workSessionsCompleted ?? 0;
     const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
+    if (phase === PHASE_OTHER) {
+      // Stopwatch: stored remainingSec holds elapsed seconds; add wall-time elapsed.
+      remainingSec = Math.max(0, (s.remainingSec ?? 0) + elapsed);
+      return !!s.running;
+    }
     remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(phase)) - elapsed);
     if (remainingSec <= 10) {
       remainingSec = phaseDuration(phase);
@@ -82,12 +88,13 @@ function phaseDuration(p) {
   if (p === PHASE_SNOOZE) return SNOOZE_DURATION;
   if (p === PHASE_SHORT) return settings.short_break_minutes * 60;
   if (p === PHASE_LONG) return settings.long_break_minutes * 60;
+  if (p === PHASE_OTHER) return 0; // stopwatch starts at 0 and counts up
   return settings.work_minutes * 60;
 }
 
 function applyPhaseClass() {
   const c = $("app");
-  c.classList.remove("phase-work", "phase-short", "phase-long", "phase-snooze");
+  c.classList.remove("phase-work", "phase-short", "phase-long", "phase-snooze", "phase-other");
   c.classList.add(`phase-${phase}`);
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.phase === phase);
@@ -96,11 +103,10 @@ function applyPhaseClass() {
 
 function fmt(sec) {
   const s = Math.max(0, Math.floor(sec));
-  const m = Math.floor(s / 60)
-    .toString()
-    .padStart(2, "0");
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
   const ss = (s % 60).toString().padStart(2, "0");
-  return `${m}:${ss}`;
+  return h > 0 ? `${h}:${m}:${ss}` : `${m}:${ss}`;
 }
 
 function timerIsEditable() {
@@ -185,6 +191,11 @@ function exitEditMode(confirm) {
 }
 
 function tick() {
+  if (phase === PHASE_OTHER) {
+    remainingSec += 1; // stopwatch: count up
+    render();
+    return;
+  }
   remainingSec -= 1;
   if (remainingSec <= 0) {
     handlePhaseEnd(true).catch((e) => console.warn("handlePhaseEnd error", e));
@@ -262,6 +273,12 @@ async function handlePhaseEnd(natural = false) {
     await enterOverlayFullscreen();
     renderSnoozeButton();
     if (settings.auto_start_break) await startTimer();
+    return;
+  }
+
+  if (ended === PHASE_OTHER) {
+    // Stopwatch ended manually (skip). Just return to work; do not auto-start.
+    setPhaseInternal(PHASE_WORK);
     return;
   }
 
