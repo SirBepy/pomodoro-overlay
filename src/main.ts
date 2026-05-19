@@ -23,6 +23,7 @@ import {
   exitEditMode as exitEditModeImpl,
   setupTimerEdit,
 } from "./views/timer/timer-edit";
+import { openEvent, closeOpenEvent } from "./shared/stats";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -223,6 +224,10 @@ async function startTimer() {
     invoke("enable_dnd").catch(() => {});
     dndEnabledByApp = true;
   }
+  // Stats: open event. If we're resuming after a pause (same phase still set),
+  // share the existing session_id.
+  const configured = phase === PHASE_OTHER ? null : phaseDuration(phase);
+  await openEvent(phase, configured, /* resumeSession */ true);
   running = true;
   tickHandle = setInterval(tick, 1000);
   invoke("set_tray_running", { running: true }).catch(() => {});
@@ -231,9 +236,15 @@ async function startTimer() {
 }
 
 function pauseTimer() {
+  if (!running) {
+    if (tickHandle) clearInterval(tickHandle);
+    tickHandle = null;
+    return;
+  }
   running = false;
   if (tickHandle) clearInterval(tickHandle);
   tickHandle = null;
+  closeOpenEvent("pause").catch(() => {});
   if (dndEnabledByApp) {
     invoke("disable_dnd").catch(() => {});
     dndEnabledByApp = false;
@@ -253,6 +264,7 @@ function setPhase(p) {
     fsState.snoozeHandle = null;
     fsState.pendingBreakPhase = null;
   }
+  if (running) closeOpenEvent("switch").catch(() => {});
   pauseTimer();
   phase = p;
   remainingSec = phaseDuration(phase);
@@ -261,6 +273,9 @@ function setPhase(p) {
 }
 
 async function handlePhaseEnd(natural = false) {
+  if (running) {
+    await closeOpenEvent(natural ? "natural" : "skip");
+  }
   pauseTimer();
   if (natural) playSound().catch(() => {});
   const ended = phase;
