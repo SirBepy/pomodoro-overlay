@@ -177,9 +177,14 @@ select {
 }
 
 @media (max-width: 200px), (max-height: 200px) {
+  #app.is-hovered .top-bar {
+    opacity: 0;
+    max-height: 0;
+    pointer-events: none;
+  }
   #app.is-hovered .timer {
-    transform: translate(-50%, -70%);
-    font-size: clamp(40px, min(18vw, 18vh), 160px);
+    transform: translate(-50%, -60%);
+    font-size: clamp(54px, min(24vw, 24vh), 180px);
   }
 }
 
