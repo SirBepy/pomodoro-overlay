@@ -36,7 +36,19 @@ async function refresh(root: HTMLElement) {
   renderChart(chartEl, buckets);
 }
 
+let unlistenStats: (() => void) | null = null;
+let visibilityHandler: (() => void) | null = null;
+
+function teardown() {
+  if (unlistenStats) { unlistenStats(); unlistenStats = null; }
+  if (visibilityHandler) {
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    visibilityHandler = null;
+  }
+}
+
 export function mountDashboard(root: HTMLElement) {
+  teardown();
   root.innerHTML = `
     <div class="dashboard">
       <div id="dash-today"></div>
@@ -49,10 +61,14 @@ export function mountDashboard(root: HTMLElement) {
   `;
   refresh(root);
 
-  listen("stats-updated", () => refresh(root));
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refresh(root);
+  listen("stats-updated", () => refresh(root)).then((un) => {
+    unlistenStats = un;
   });
+
+  visibilityHandler = () => {
+    if (document.visibilityState === "visible") refresh(root);
+  };
+  document.addEventListener("visibilitychange", visibilityHandler);
 
   const btn = root.querySelector<HTMLButtonElement>("#clear-stats")!;
   btn.addEventListener("click", async () => {

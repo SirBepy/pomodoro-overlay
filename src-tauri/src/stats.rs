@@ -34,8 +34,8 @@ pub struct StatsState(pub Mutex<StatsFile>);
 fn stats_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
-        .app_config_dir()
-        .map_err(|e| format!("app_config_dir: {e}"))?;
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir: {e}"))?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("create_dir_all: {e}"))?;
     Ok(dir.join(STATS_FILENAME))
 }

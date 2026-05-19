@@ -16,7 +16,7 @@ export function renderIdle(root: HTMLElement, todayIdleMs: number, sevenDayAvgId
           <div class="big">${fmtMs(sevenDayAvgIdleMs)}</div>
         </div>
       </div>
-      <div class="card-footer">Gaps over ${Math.round(capMinutes / 60)}h are excluded (configurable in Settings).</div>
+      <div class="card-footer">Gaps over ${Math.round(capMinutes / 60)}h are excluded (configurable in Settings > System).</div>
     </div>
   `;
 }
