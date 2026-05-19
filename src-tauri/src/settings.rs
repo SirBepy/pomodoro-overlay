@@ -33,6 +33,7 @@ pub struct Settings {
     pub click_through_modifier: String,
     pub keybind_pause: Option<String>,
     pub keybind_skip: Option<String>,
+    pub idle_gap_cap_minutes: u32,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -67,6 +68,7 @@ impl Default for Settings {
             click_through_modifier: "none".to_string(),
             keybind_pause: None,
             keybind_skip: None,
+            idle_gap_cap_minutes: 240,
             kit: KitSettings::default(),
         }
     }
