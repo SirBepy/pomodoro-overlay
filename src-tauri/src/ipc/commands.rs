@@ -55,14 +55,17 @@ pub fn set_window_size(app: AppHandle, expanded: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
+pub fn open_settings_window(app: AppHandle, route: Option<String>) -> Result<(), String> {
+    let hash = route.unwrap_or_else(|| "dashboard".into());
     if let Some(existing) = app.get_webview_window("settings") {
+        let _ = existing.eval(&format!("window.location.hash = '{hash}'"));
         let _ = existing.show();
         let _ = existing.set_focus();
         return Ok(());
     }
-    WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("Pomodoro Overlay - Settings")
+    let url = format!("settings.html#{hash}");
+    WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url.into()))
+        .title("Pomodoro Overlay")
         .inner_size(440.0, 600.0)
         .resizable(false)
         .build()

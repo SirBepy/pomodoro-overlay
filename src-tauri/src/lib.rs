@@ -84,12 +84,12 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
 fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
     let play_pause = MenuItem::with_id(app, "play_pause", "Start", true, None::<&str>)?;
     let sep_top = PredefinedMenuItem::separator(app)?;
-    let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
+    let dashboard_item = MenuItem::with_id(app, "dashboard", "Dashboard", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&play_pause, &sep_top, &settings_item, &sep, &quit],
+        &[&play_pause, &sep_top, &dashboard_item, &sep, &quit],
     )?;
 
     let icon: Image = match app.default_window_icon() {
@@ -103,8 +103,8 @@ fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
-                let _ = open_settings_window(app.clone());
+            "dashboard" => {
+                let _ = open_settings_window(app.clone(), Some("dashboard".into()));
             }
             "play_pause" => {
                 let _ = app.emit("tray-toggle-play", ());
