@@ -31,6 +31,8 @@ pub struct Settings {
     pub pause_music_on_break: String,
     pub dnd_on_focus: bool,
     pub click_through_modifier: String,
+    pub keybind_pause: Option<String>,
+    pub keybind_skip: Option<String>,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -63,6 +65,8 @@ impl Default for Settings {
             pause_music_on_break: "never".to_string(),
             dnd_on_focus: false,
             click_through_modifier: "none".to_string(),
+            keybind_pause: None,
+            keybind_skip: None,
             kit: KitSettings::default(),
         }
     }
