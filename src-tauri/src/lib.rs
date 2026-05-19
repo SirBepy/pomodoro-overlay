@@ -12,8 +12,12 @@ use ipc::commands::{
     set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
+use ipc::stats::{
+    append_stats_event, close_open_stats_event, get_stats_range, reset_stats,
+};
 use settings::{Settings, SettingsState};
 use state::{DndState, PausedSessionsState, TrayPlayPauseItem};
+use stats::StatsState;
 use std::sync::Mutex;
 use tauri::{
     image::Image,
@@ -176,6 +180,13 @@ pub fn run() {
             handle.manage(SettingsState(Mutex::new(settings)));
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
             handle.manage(DndState(std::sync::Mutex::new(None)));
+            handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
+
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            stats::close_open_on_startup(&handle, now_ms);
             #[cfg(target_os = "windows")]
             {
                 if let Some(p) = app.path().app_local_data_dir().ok().map(|d| d.join("dnd_backup.bin")) {
@@ -256,6 +267,10 @@ pub fn run() {
             set_click_through,
             is_modifier_held,
             set_tray_running,
+            append_stats_event,
+            close_open_stats_event,
+            get_stats_range,
+            reset_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
