@@ -183,7 +183,7 @@ select {
     pointer-events: none;
   }
   #app.is-hovered .timer {
-    transform: translate(-50%, -60%);
+    transform: translate(-50%, -90%);
     font-size: clamp(54px, min(24vw, 24vh), 180px);
   }
 }
