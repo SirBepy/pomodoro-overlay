@@ -2,6 +2,7 @@ mod hotkeys;
 mod ipc;
 mod settings;
 mod state;
+mod stats;
 
 use ipc::commands::{
     disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
