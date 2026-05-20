@@ -174,7 +174,7 @@ pub fn run() {
                 let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
                 let _ = win.set_always_on_top(settings.always_on_top);
-                let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 120u32)));
+                let _ = win.set_min_size(Some(PhysicalSize::new(160u32, 120u32)));
                 let _ = win.show();
             }
             handle.manage(SettingsState(Mutex::new(settings)));
