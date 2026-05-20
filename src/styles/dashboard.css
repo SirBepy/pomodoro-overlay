@@ -26,30 +26,24 @@ body {
 .ctx-header {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  justify-content: space-between;
+  padding: 6px 6px;
   border-bottom: 1px solid var(--border, #2a2a2a);
-  gap: 8px;
   height: 38px;
   box-sizing: border-box;
 }
 
 .ctx-title {
+  flex: 1;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary, #e0e0e0);
 }
 
-/* Dashboard: title centered, cog pinned right */
-.ctx-header-dashboard {
-  justify-content: center;
-  position: relative;
-}
-.ctx-header-dashboard .ctx-cog-btn {
-  position: absolute;
-  right: 6px;
-}
-
-.ctx-back-btn {
+.ctx-app-bar-btn {
+  width: 32px;
+  flex-shrink: 0;
   background: none;
   border: none;
   cursor: pointer;
@@ -57,23 +51,16 @@ body {
   font-size: 16px;
   display: flex;
   align-items: center;
-  padding: 4px 6px;
-  border-radius: 4px;
-}
-.ctx-back-btn:hover { background: var(--hover-bg, rgba(255,255,255,0.06)); }
-
-.ctx-cog-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary, #aaa);
-  font-size: 16px;
+  justify-content: center;
   padding: 4px;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
 }
-.ctx-cog-btn:hover { color: var(--text-primary, #e0e0e0); }
+.ctx-app-bar-btn:hover { color: var(--text-primary, #e0e0e0); background: var(--hover-bg, rgba(255,255,255,0.06)); }
+
+.ctx-app-bar-spacer {
+  width: 32px;
+  flex-shrink: 0;
+}
 
 .ctx-nav-btn {
   background: none;

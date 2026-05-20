@@ -3,6 +3,7 @@ import "@phosphor-icons/web/fill";
 import "../../../vendor/tauri_kit/frontend/settings/styles.css";
 import "../../styles/dashboard.css";
 import { applyTheme } from "../../../vendor/tauri_kit/frontend/settings/pages/theme";
+import { mountAppBar } from "./app-bar";
 import { mountSettings } from "../settings/settings";
 import { mountDashboard, teardown as teardownDashboard } from "../dashboard/dashboard";
 
@@ -28,30 +29,16 @@ function currentRoute(): RouteName {
 }
 
 function renderSettingsHeader(): void {
-  headerEl.innerHTML = `
-    <div class="ctx-header ctx-header-settings">
-      <button class="ctx-back-btn" id="back-to-dashboard">
-        <i class="ph ph-arrow-left"></i>
-      </button>
-      <span class="ctx-title">Settings</span>
-    </div>
-  `;
-  headerEl.querySelector("#back-to-dashboard")!.addEventListener("click", () => {
-    location.hash = "#dashboard";
+  mountAppBar(headerEl, {
+    title: "Settings",
+    leading: { icon: "arrow-left", action: () => { location.hash = "#dashboard"; } },
   });
 }
 
 export function renderDashboardHeader(): void {
-  headerEl.innerHTML = `
-    <div class="ctx-header ctx-header-dashboard">
-      <span class="ctx-title">Dashboard</span>
-      <button class="ctx-cog-btn" id="open-settings" title="Settings">
-        <i class="ph ph-gear"></i>
-      </button>
-    </div>
-  `;
-  headerEl.querySelector("#open-settings")!.addEventListener("click", () => {
-    location.hash = "#settings";
+  mountAppBar(headerEl, {
+    title: "Dashboard",
+    trailing: { icon: "gear", action: () => { location.hash = "#settings"; }, title: "Settings" },
   });
 }
 
