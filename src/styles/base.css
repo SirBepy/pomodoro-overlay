@@ -94,6 +94,9 @@ select {
   opacity: 1;
   max-height: clamp(40px, 20vh, 80px);
   pointer-events: auto;
+  /* Once expanded, stop clipping so the buttons' hover lift + shadow aren't
+     cut off. overflow:hidden is only needed for the collapse/reveal animation. */
+  overflow: visible;
 }
 
 /* ── Top bar ── */
