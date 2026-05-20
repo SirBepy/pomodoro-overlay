@@ -24,6 +24,7 @@ import {
   setupTimerEdit,
 } from "./views/timer/timer-edit";
 import { openEvent, closeOpenEvent } from "./shared/stats";
+import { setupVisibility } from "./views/timer/visibility";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -116,65 +117,9 @@ function timerIsEditable() {
   return !!(settings?.editable_when_paused && !running && phase !== PHASE_SNOOZE);
 }
 
-let isHovered = false;
-let modifierHeld = false;
-let isClickThrough = false;
-
-function clickThroughActive() {
-  const mod = settings?.click_through_modifier ?? "none";
-  return running && mod !== "none" && !modifierHeld && !fsState.isOverlayFullscreen;
-}
-
-function applyVisibility() {
-  if (!settings) return;
-  const fadeWhen = settings.fade_when ?? "always";
-  const shouldFade =
-    fadeWhen === "always" || (fadeWhen === "running" && running);
-  const fadingForClickThrough = clickThroughActive() && isHovered;
-  if (fadingForClickThrough) {
-    document.body.style.opacity = "0";
-  } else {
-    document.body.style.opacity =
-      isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);
-  }
-  const expanded = !fadingForClickThrough && (isHovered || (!running && phase !== PHASE_SNOOZE));
-  $("app").classList.toggle("is-hovered", expanded);
-}
-
-async function syncClickThrough() {
-  const desired = clickThroughActive();
-  if (desired === isClickThrough) return;
-  isClickThrough = desired;
-  try {
-    await invoke("set_click_through", { enabled: desired });
-  } catch (e) {
-    console.warn("set_click_through failed", e);
-  }
-}
-
-function setupHoverOpacity() {
-  setInterval(async () => {
-    try {
-      const mod = settings?.click_through_modifier ?? "none";
-      const heldPromise = mod === "none"
-        ? Promise.resolve(false)
-        : invoke("is_modifier_held", { modifier: mod });
-      const [over, held] = await Promise.all([
-        invoke("is_cursor_over_window"),
-        heldPromise,
-      ]);
-      const changed = over !== isHovered || held !== modifierHeld;
-      if (changed) {
-        isHovered = over;
-        modifierHeld = held;
-        applyVisibility();
-        syncClickThrough();
-      }
-    } catch (e) {
-      console.warn("hover/modifier poll failed", e);
-    }
-  }, 150);
-}
+// Assigned by setupVisibility() during init(), before the first render().
+let syncClickThrough = () => {};
+let applyVisibility = () => {};
 
 function render() {
   const timerEl = document.querySelector(".timer");
@@ -240,7 +185,7 @@ async function startTimer() {
   render();
 }
 
-function pauseTimer() {
+function pauseTimer(endedBy = "pause") {
   if (!running) {
     if (tickHandle) clearInterval(tickHandle);
     tickHandle = null;
@@ -249,7 +194,7 @@ function pauseTimer() {
   running = false;
   if (tickHandle) clearInterval(tickHandle);
   tickHandle = null;
-  closeOpenEvent("pause").catch(() => {});
+  closeOpenEvent(endedBy).catch(() => {});
   if (dndEnabledByApp) {
     invoke("disable_dnd").catch(() => {});
     dndEnabledByApp = false;
@@ -269,8 +214,7 @@ function setPhase(p) {
     fsState.snoozeHandle = null;
     fsState.pendingBreakPhase = null;
   }
-  if (running) closeOpenEvent("switch").catch(() => {});
-  pauseTimer();
+  pauseTimer("switch");
   phase = p;
   remainingSec = phaseDuration(phase);
   applyPhaseClass();
@@ -358,7 +302,6 @@ function setupControls() {
     b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
-  setupHoverOpacity();
   setupResizeHandles();
   setupTimerEdit({
     timerIsEditable,
@@ -402,6 +345,11 @@ async function init() {
   initSounds(() => settings);
   remainingSec = phaseDuration(phase);
   const shouldResume = loadState();
+  ({ syncClickThrough, applyVisibility } = setupVisibility({
+    getSettings: () => settings,
+    getRunning: () => running,
+    getPhase: () => phase,
+  }));
   initFullscreen({
     getSettings: () => settings,
     getPhase: () => phase,
