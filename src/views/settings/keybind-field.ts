@@ -7,22 +7,30 @@ export interface KeybindFieldDef extends BaseField {
   render: (value: unknown, onChange: (next: unknown) => void) => TemplateResult;
 }
 
-/** Maps a KeyboardEvent key string to a Tauri accelerator key name. Returns null for unsupported keys. */
-function keyToAccelerator(key: string): string | null {
-  if (key === " ") return "Space";
-  if (key === "ArrowLeft") return "Left";
-  if (key === "ArrowRight") return "Right";
-  if (key === "ArrowUp") return "Up";
-  if (key === "ArrowDown") return "Down";
-  if (/^F([1-9]|1[0-2])$/.test(key)) return key;
-  if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
-  if (/^[0-9]$/.test(key)) return key;
+/**
+ * Maps a KeyboardEvent.code (the physical key, independent of Shift/layout) to
+ * a Tauri accelerator key name. Reading e.code rather than e.key is essential:
+ * with Shift held, e.key is the shifted glyph (e.g. "!" for Shift+1), which
+ * can't be mapped. e.code stays "Digit1" regardless of modifiers.
+ * Returns null for unsupported keys.
+ */
+function codeToAccelerator(code: string): string | null {
+  if (code === "Space") return "Space";
+  if (code === "ArrowLeft") return "Left";
+  if (code === "ArrowRight") return "Right";
+  if (code === "ArrowUp") return "Up";
+  if (code === "ArrowDown") return "Down";
+  if (/^F([1-9]|1[0-2])$/.test(code)) return code;
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter) return letter[1];
+  const digit = /^(?:Digit|Numpad)([0-9])$/.exec(code);
+  if (digit) return digit[1];
   return null;
 }
 
 /** Builds a Tauri accelerator string from a KeyboardEvent. Returns null if no valid combo (no modifier). */
-function buildAccelerator(e: KeyboardEvent): string | null {
-  const mainKey = keyToAccelerator(e.key);
+export function buildAccelerator(e: KeyboardEvent): string | null {
+  const mainKey = codeToAccelerator(e.code);
   if (!mainKey) return null;
   const mods: string[] = [];
   if (e.ctrlKey) mods.push("Ctrl");
