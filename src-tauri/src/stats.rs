@@ -120,12 +120,16 @@ pub fn close_open_on_startup(app: &AppHandle, fallback_end_ms: i64) {
         Ok(g) => g,
         Err(_) => return,
     };
-    if let Some(last) = file.events.last_mut() {
-        if last.end_ms.is_none() {
-            last.end_ms = Some(fallback_end_ms.max(last.start_ms));
-            last.ended_by = Some("app_close".into());
-            log::info!("stats: closed dangling open event on startup");
+    let mut closed = 0usize;
+    for event in file.events.iter_mut() {
+        if event.end_ms.is_none() {
+            event.end_ms = Some(fallback_end_ms.max(event.start_ms));
+            event.ended_by = Some("app_close".into());
+            closed += 1;
         }
     }
-    let _ = persist(app, &file);
+    if closed > 0 {
+        log::info!("stats: closed {} dangling open event(s) on startup", closed);
+        let _ = persist(app, &file);
+    }
 }
