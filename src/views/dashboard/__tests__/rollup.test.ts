@@ -79,6 +79,16 @@ describe("idleMs", () => {
     const idle = idleMs(events, t, t + 5 * HOUR, t + 5 * HOUR, 180);
     expect(idle).toBe(55 * MIN);
   });
+
+  it("handles overlapping events without double-counting or negative idle", () => {
+    const t = 1_700_000_000_000;
+    const events = [
+      ev(t, t + 30 * MIN, "work"),
+      ev(t + 20 * MIN, t + 40 * MIN, "short"),   // overlaps work by 10 min
+    ];
+    // Coverage = [t, t+40m], range = [t, t+1h], idle = 20 min trailing
+    expect(idleMs(events, t, t + HOUR, t + HOUR, 240)).toBe(20 * MIN);
+  });
 });
 
 describe("workSessionsCompleted", () => {
