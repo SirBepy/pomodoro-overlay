@@ -14,9 +14,9 @@ pub fn save_settings(
     state: State<'_, SettingsState>,
     settings: Settings,
 ) -> Result<(), String> {
-    let (old_pause, old_skip) = {
+    let (old_pause, old_skip, old_show_hide) = {
         let s = state.0.lock().unwrap();
-        (s.keybind_pause.clone(), s.keybind_skip.clone())
+        (s.keybind_pause.clone(), s.keybind_skip.clone(), s.keybind_show_hide.clone())
     };
     {
         let mut s = state.0.lock().unwrap();
@@ -34,8 +34,10 @@ pub fn save_settings(
         &app,
         old_pause.as_deref(),
         old_skip.as_deref(),
+        old_show_hide.as_deref(),
         settings.keybind_pause.as_deref(),
         settings.keybind_skip.as_deref(),
+        settings.keybind_show_hide.as_deref(),
     );
     Ok(())
 }

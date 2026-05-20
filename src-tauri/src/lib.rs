@@ -81,6 +81,32 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
     Image::new_owned(rgba, icon.width(), icon.height())
 }
 
+/// Toggle the main overlay window between shown and hidden.
+///
+/// Emits `main-window-hidden` / `main-window-shown` so the frontend can run its
+/// side effects (keep-awake, etc.), and dims the tray icon while hidden. Shared
+/// by the tray left-click and the show/hide global hotkey so both behave alike.
+pub fn toggle_main_visibility(app: &AppHandle) {
+    let Some(w) = app.get_webview_window("main") else { return };
+    let visible = w.is_visible().unwrap_or(false);
+    if visible {
+        let _ = w.hide();
+        let _ = app.emit("main-window-hidden", ());
+    } else {
+        let _ = w.show();
+        let _ = w.set_focus();
+        let _ = app.emit("main-window-shown", ());
+    }
+    if let Some(t) = app.tray_by_id("main-tray") {
+        let base = app
+            .default_window_icon()
+            .cloned()
+            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
+        let icon = if visible { dimmed_icon(&base) } else { base };
+        let _ = t.set_icon(Some(icon));
+    }
+}
+
 fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
     let play_pause = MenuItem::with_id(app, "play_pause", "Start", true, None::<&str>)?;
     let dashboard_item = MenuItem::with_id(app, "dashboard", "Dashboard", true, None::<&str>)?;
@@ -120,25 +146,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(w) = app.get_webview_window("main") {
-                    let visible = w.is_visible().unwrap_or(false);
-                    if visible {
-                        let _ = w.hide();
-                        let _ = app.emit("main-window-hidden", ());
-                    } else {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                        let _ = app.emit("main-window-shown", ());
-                    }
-                    if let Some(t) = app.tray_by_id("main-tray") {
-                        let base = app.default_window_icon()
-                            .cloned()
-                            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
-                        let icon = if visible { dimmed_icon(&base) } else { base };
-                        let _ = t.set_icon(Some(icon));
-                    }
-                }
+                toggle_main_visibility(tray.app_handle());
             }
         })
         .build(app)?;
@@ -168,12 +176,12 @@ pub fn run() {
             let settings = settings::load(&handle);
             log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
             apply_autostart(&handle, settings.autostart);
-            hotkeys::register_hotkeys(&handle, None, None, settings.keybind_pause.as_deref(), settings.keybind_skip.as_deref());
+            hotkeys::register_hotkeys(&handle, None, None, None, settings.keybind_pause.as_deref(), settings.keybind_skip.as_deref(), settings.keybind_show_hide.as_deref());
             if let Some(win) = handle.get_webview_window("main") {
                 let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
                 let _ = win.set_always_on_top(settings.always_on_top);
-                let _ = win.set_min_size(Some(PhysicalSize::new(160u32, 120u32)));
+                let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 100u32)));
                 let _ = win.show();
             }
             handle.manage(SettingsState(Mutex::new(settings)));

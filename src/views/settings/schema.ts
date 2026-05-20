@@ -237,6 +237,7 @@ export const settingsSchema = defineSchema({
           fields: [
             keybindField({ key: "keybind_pause", label: "Pause / Resume" }),
             keybindField({ key: "keybind_skip", label: "Skip phase" }),
+            keybindField({ key: "keybind_show_hide", label: "Show / Hide overlay" }),
           ],
         },
       ],
