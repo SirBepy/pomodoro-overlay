@@ -247,25 +247,15 @@ export const settingsSchema = defineSchema({
       title: "Stats",
       groups: [
         {
-          title: "Dashboard cards",
+          title: "Retention",
           fields: [
             {
-              key: "stats_show_today",
-              kind: "toggle",
-              label: "Today summary",
-              tooltip: "Show the today totals card on the dashboard.",
-            },
-            {
-              key: "stats_show_idle",
-              kind: "toggle",
-              label: "Idle card",
-              tooltip: "Show the idle-time card on the dashboard.",
-            },
-            {
-              key: "stats_show_chart",
-              kind: "toggle",
-              label: "7-day chart",
-              tooltip: "Show the 7-day breakdown chart on the dashboard.",
+              key: "stats_retention_days",
+              kind: "integer",
+              label: "Keep stats for (days)",
+              min: 7,
+              max: 365,
+              tooltip: "Events older than this are deleted on startup. Default: 30 days.",
             },
           ],
         },

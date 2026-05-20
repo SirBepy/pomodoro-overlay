@@ -133,3 +133,25 @@ pub fn close_open_on_startup(app: &AppHandle, fallback_end_ms: i64) {
         let _ = persist(app, &file);
     }
 }
+
+pub fn prune_old_events(app: &AppHandle, retention_days: u32, now_ms: i64) {
+    if retention_days == 0 {
+        return;
+    }
+    let cutoff_ms = now_ms - (retention_days as i64 * 86_400_000);
+    let state = app.state::<StatsState>();
+    let mut file = match state.0.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    let before = file.events.len();
+    file.events.retain(|e| {
+        let end = e.end_ms.unwrap_or(e.start_ms);
+        end >= cutoff_ms
+    });
+    let removed = before - file.events.len();
+    if removed > 0 {
+        log::info!("stats: pruned {} event(s) older than {} days", removed, retention_days);
+        let _ = persist(app, &file);
+    }
+}

@@ -194,6 +194,11 @@ pub fn run() {
                 .map(|d| d.as_millis() as i64)
                 .unwrap_or(0);
             stats::close_open_on_startup(&handle, now_ms);
+            {
+                let settings = handle.state::<SettingsState>();
+                let days = settings.0.lock().map(|s| s.stats_retention_days).unwrap_or(30);
+                stats::prune_old_events(&handle, days, now_ms);
+            }
             #[cfg(target_os = "windows")]
             {
                 if let Some(p) = app.path().app_local_data_dir().ok().map(|d| d.join("dnd_backup.bin")) {
@@ -288,6 +293,11 @@ pub fn run() {
                     .map(|d| d.as_millis() as i64)
                     .unwrap_or(0);
                 stats::close_open_on_startup(app, now_ms);
+                {
+                    let settings = app.state::<SettingsState>();
+                    let days = settings.0.lock().map(|s| s.stats_retention_days).unwrap_or(30);
+                    stats::prune_old_events(app, days, now_ms);
+                }
             }
         });
 }

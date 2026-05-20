@@ -35,9 +35,7 @@ pub struct Settings {
     pub keybind_skip: Option<String>,
     pub keybind_show_hide: Option<String>,
     pub idle_gap_cap_minutes: u32,
-    pub stats_show_today: bool,
-    pub stats_show_idle: bool,
-    pub stats_show_chart: bool,
+    pub stats_retention_days: u32,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -75,9 +73,7 @@ impl Default for Settings {
             keybind_skip: None,
             keybind_show_hide: None,
             idle_gap_cap_minutes: 240,
-            stats_show_today: true,
-            stats_show_idle: true,
-            stats_show_chart: true,
+            stats_retention_days: 30,
             kit: KitSettings::default(),
         }
     }
