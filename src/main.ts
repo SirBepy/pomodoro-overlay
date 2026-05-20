@@ -30,7 +30,9 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 // Fire-and-forget. Reads __kit_auto_update from settings to decide behavior.
-runAutoUpdateCheck();
+// Skip in dev: the dev binary lags the released version, so check() would
+// always "find" an update and nag. import.meta.env.DEV is true only under vite dev.
+if (!import.meta.env.DEV) runAutoUpdateCheck();
 
 const PHASE_WORK = "work";
 const PHASE_SHORT = "short";
