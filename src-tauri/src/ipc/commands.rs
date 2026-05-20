@@ -41,13 +41,12 @@ pub fn save_settings(
 }
 
 #[tauri::command]
-pub fn set_window_size(app: AppHandle, expanded: bool) -> Result<(), String> {
+pub fn set_window_size(app: AppHandle) -> Result<(), String> {
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
     let s = app.state::<SettingsState>();
     let settings = s.0.lock().unwrap().clone();
-    let _ = expanded;
     let (w, h) = settings.expanded_size();
     resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())?;
     let _ = win.set_always_on_top(settings.always_on_top);

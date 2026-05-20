@@ -464,7 +464,7 @@ async function init() {
     invoke("disable_keep_awake").catch(() => {});
     clearReturnCornerTimer();
     try {
-      await invoke("set_window_size", { expanded: true });
+      await invoke("set_window_size");
     } catch (e) {
       console.warn("set_window_size failed", e);
     }
