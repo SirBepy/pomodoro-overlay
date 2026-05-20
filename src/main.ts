@@ -132,6 +132,7 @@ function render() {
   timerEl.classList.toggle("timer-editable", timerIsEditable() && !isEditMode());
   $("play").textContent = running ? "PAUSE" : "START";
   $("skip").classList.toggle("visible", running);
+  $("app").classList.toggle("is-paused", !running);
   renderSnoozeButton();
   applyVisibility();
   saveState();

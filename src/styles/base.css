@@ -189,6 +189,9 @@ select {
     transform: translate(-50%, -90%);
     font-size: clamp(54px, min(24vw, 24vh), 180px);
   }
+  #app.is-paused .timer {
+    font-size: clamp(43px, min(19vw, 19vh), 144px);
+  }
 }
 
 /* ── Bottom bar ── */
