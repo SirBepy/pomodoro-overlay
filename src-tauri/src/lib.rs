@@ -83,13 +83,12 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
 
 fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
     let play_pause = MenuItem::with_id(app, "play_pause", "Start", true, None::<&str>)?;
-    let sep_top = PredefinedMenuItem::separator(app)?;
     let dashboard_item = MenuItem::with_id(app, "dashboard", "Dashboard", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&play_pause, &sep_top, &dashboard_item, &sep, &quit],
+        &[&play_pause, &dashboard_item, &sep, &quit],
     )?;
 
     let icon: Image = match app.default_window_icon() {
