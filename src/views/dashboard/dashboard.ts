@@ -6,12 +6,8 @@ import { getRange } from "../../shared/stats";
 import { todayTotals, startOfDay, endOfDay } from "./rollup";
 import { renderSummaryStrip } from "./summary-strip";
 import { renderTimeline } from "./timeline";
-// Inline type to avoid circular import (router.ts imports dashboard.ts)
-type RenderHeaderFn = (
-  selectedDayStart: number,
-  earliestDayStart: number,
-  onNavigate: (newDay: number) => void,
-) => void;
+
+type RenderHeaderFn = () => void;
 
 let selectedDayStart: number = startOfDay(Date.now());
 let earliestDayStart: number = startOfDay(Date.now());
@@ -28,7 +24,6 @@ export function teardown() {
 }
 
 async function loadEarliestDay(): Promise<number> {
-  // Fetch a wide range to find oldest event. Retention max is 365 days.
   const farPast = Date.now() - 366 * 86_400_000;
   try {
     const events = await invoke("get_stats_range", { startMs: farPast, endMs: Date.now() });
@@ -40,10 +35,46 @@ async function loadEarliestDay(): Promise<number> {
   }
 }
 
+function renderPagination(
+  root: HTMLElement,
+  selected: number,
+  earliest: number,
+  onNavigate: (newDay: number) => void,
+): void {
+  const now = Date.now();
+  const todayStart = startOfDay(now);
+  const isPrevDisabled = selected <= earliest;
+  const isNextDisabled = selected >= todayStart;
+  const minDate = new Date(earliest).toISOString().slice(0, 10);
+  const maxDate = new Date(todayStart).toISOString().slice(0, 10);
+  const currentDate = new Date(selected).toISOString().slice(0, 10);
+
+  root.innerHTML = `
+    <button class="ctx-nav-btn" id="pag-prev" ${isPrevDisabled ? "disabled" : ""}>
+      <i class="ph ph-caret-left"></i>
+    </button>
+    <input type="date" class="ctx-date-picker" id="pag-date"
+      value="${currentDate}" min="${minDate}" max="${maxDate}">
+    <button class="ctx-nav-btn" id="pag-next" ${isNextDisabled ? "disabled" : ""}>
+      <i class="ph ph-caret-right"></i>
+    </button>
+  `;
+  root.querySelector("#pag-prev")!.addEventListener("click", () => {
+    if (!isPrevDisabled) onNavigate(selected - 86_400_000);
+  });
+  root.querySelector("#pag-next")!.addEventListener("click", () => {
+    if (!isNextDisabled) onNavigate(selected + 86_400_000);
+  });
+  root.querySelector("#pag-date")!.addEventListener("change", (ev) => {
+    const val = (ev.target as HTMLInputElement).value;
+    if (val) onNavigate(startOfDay(new Date(val).getTime()));
+  });
+}
+
 async function refresh(
+  paginationEl: HTMLElement,
   stripEl: HTMLElement,
   timelineEl: HTMLElement,
-  headerEl: HTMLElement,
   renderHeader: RenderHeaderFn,
 ): Promise<void> {
   const now = Date.now();
@@ -52,22 +83,20 @@ async function refresh(
 
   const events = await getRange(startOfDay(selectedDayStart), endOfDay(selectedDayStart));
 
-  // For past days pass endOfDay-1ms so startOfDay() inside todayTotals stays on the right day.
-  // For today pass `now` so open events are capped at current time.
   const isToday = selectedDayStart === startOfDay(now);
   const nowArg = isToday ? now : endOfDay(selectedDayStart) - 1;
   const totals = todayTotals(events, nowArg, cap);
   renderSummaryStrip(stripEl, totals);
   renderTimeline(timelineEl, events, selectedDayStart, now);
-  renderHeader(selectedDayStart, earliestDayStart, (newDay) => {
+  renderHeader();
+  renderPagination(paginationEl, selectedDayStart, earliestDayStart, (newDay) => {
     selectedDayStart = newDay;
-    refresh(stripEl, timelineEl, headerEl, renderHeader);
+    refresh(paginationEl, stripEl, timelineEl, renderHeader);
   });
 }
 
 export function mountDashboard(
   root: HTMLElement,
-  headerEl: HTMLElement,
   renderHeader: RenderHeaderFn,
 ): void {
   teardown();
@@ -76,26 +105,28 @@ export function mountDashboard(
 
   root.innerHTML = `
     <div class="dashboard">
+      <div id="dash-pagination"></div>
       <div id="dash-strip"></div>
       <div id="dash-timeline"></div>
     </div>
   `;
 
+  const paginationEl = root.querySelector<HTMLElement>("#dash-pagination")!;
   const stripEl = root.querySelector<HTMLElement>("#dash-strip")!;
   const timelineEl = root.querySelector<HTMLElement>("#dash-timeline")!;
 
   loadEarliestDay().then((earliest) => {
     earliestDayStart = earliest;
-    refresh(stripEl, timelineEl, headerEl, renderHeader);
+    refresh(paginationEl, stripEl, timelineEl, renderHeader);
   });
 
   listen("stats-updated", () => {
-    refresh(stripEl, timelineEl, headerEl, renderHeader);
+    refresh(paginationEl, stripEl, timelineEl, renderHeader);
   }).then((un) => { unlistenStats = un; });
 
   visibilityHandler = () => {
     if (document.visibilityState === "visible") {
-      refresh(stripEl, timelineEl, headerEl, renderHeader);
+      refresh(paginationEl, stripEl, timelineEl, renderHeader);
     }
   };
   document.addEventListener("visibilitychange", visibilityHandler);

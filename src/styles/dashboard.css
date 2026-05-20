@@ -1,127 +1,28 @@
-.window-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 12px;
-  background: var(--kit-bg);
-  border-bottom: 1px solid var(--kit-border);
-}
-.window-tab {
-  background: transparent;
-  border: none;
-  color: var(--kit-text-dim);
-  padding: 6px 12px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.window-tab:hover {
-  background: var(--kit-bg-hover);
-  color: var(--kit-text);
-}
-.window-tab.active {
-  background: var(--kit-bg-alt);
-  color: var(--kit-text);
-  font-weight: 600;
+/* ── Layout root ─────────────────────────────────── */
+html,
+body {
+  height: 100%;
 }
 
-.dashboard {
-  padding: 16px;
+#root {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--kit-bg);
-  color: var(--kit-text);
-  min-height: 100vh;
-}
-.card {
-  background: var(--kit-bg-alt);
-  border: 1px solid var(--kit-border);
-  border-radius: 8px;
-  padding: 14px;
-}
-.card-label {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--kit-text-dim);
-  margin-bottom: 8px;
-}
-.today-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-.today-grid .big {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--kit-text);
-}
-.today-grid .small {
-  font-size: 11px;
-  color: var(--kit-text-dim);
-}
-.card-footer {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--kit-text-dim);
-}
-.idle-card .idle-row {
-  display: flex;
-  gap: 24px;
-}
-.idle-card .big {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--kit-text);
-  margin-top: 4px;
-}
-.chart-row {
-  display: flex;
-  gap: 6px;
-  align-items: stretch;
-  height: 140px;
-}
-.bar-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 4px;
-}
-.bar-stack {
-  flex: 1;
-  display: flex;
-  flex-direction: column-reverse;
-  background: var(--kit-bg-hover);
-  border-radius: 3px;
   overflow: hidden;
 }
-.bar-seg {
-  width: 100%;
-}
-.bar-label {
-  text-align: center;
-  font-size: 10px;
-  color: var(--kit-text-dim);
-}
-.dashboard-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 12px;
-}
-.danger-btn {
-  background: var(--kit-danger-bg);
-  border: 1px solid var(--kit-danger-border);
-  color: var(--kit-danger);
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.danger-btn:hover { filter: brightness(1.15); }
 
-/* ── Context headers ─────────────────────────────── */
 #window-header {
   flex-shrink: 0;
 }
 
+#window-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Context headers ─────────────────────────────── */
 .ctx-header {
   display: flex;
   align-items: center;
@@ -135,8 +36,17 @@
 .ctx-title {
   font-size: 13px;
   font-weight: 600;
-  flex: 1;
   color: var(--text-primary, #e0e0e0);
+}
+
+/* Dashboard: title centered, cog pinned right */
+.ctx-header-dashboard {
+  justify-content: center;
+  position: relative;
+}
+.ctx-header-dashboard .ctx-cog-btn {
+  position: absolute;
+  right: 6px;
 }
 
 .ctx-back-btn {
@@ -144,10 +54,9 @@
   border: none;
   cursor: pointer;
   color: var(--text-secondary, #aaa);
-  font-size: 13px;
+  font-size: 16px;
   display: flex;
   align-items: center;
-  gap: 4px;
   padding: 4px 6px;
   border-radius: 4px;
 }
@@ -165,12 +74,6 @@
   align-items: center;
 }
 .ctx-cog-btn:hover { color: var(--text-primary, #e0e0e0); }
-
-.ctx-date-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
 
 .ctx-nav-btn {
   background: none;
@@ -194,6 +97,25 @@
   padding: 2px 6px;
   font-size: 12px;
   cursor: pointer;
+}
+
+/* ── Dashboard layout ────────────────────────────── */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Pagination row ──────────────────────────────── */
+#dash-pagination {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border, #2a2a2a);
 }
 
 /* ── Summary strip ───────────────────────────────── */
@@ -268,7 +190,7 @@
 }
 
 .tl-hour-label {
-  display: none; /* labels on axis col only */
+  display: none;
 }
 
 .tl-block {
@@ -288,11 +210,4 @@
   min-height: 200px;
   color: var(--text-muted, #555);
   font-size: 13px;
-}
-
-/* dashboard flex layout */
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
 }
