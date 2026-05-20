@@ -1,5 +1,6 @@
 import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
 import { keybindField } from "./keybind-field";
+import { clearStatsField } from "./clear-stats-field";
 
 export const settingsSchema = defineSchema({
   sections: [
@@ -238,6 +239,40 @@ export const settingsSchema = defineSchema({
             keybindField({ key: "keybind_pause", label: "Pause / Resume" }),
             keybindField({ key: "keybind_skip", label: "Skip phase" }),
             keybindField({ key: "keybind_show_hide", label: "Show / Hide overlay" }),
+          ],
+        },
+      ],
+    },
+    {
+      title: "Stats",
+      groups: [
+        {
+          title: "Dashboard cards",
+          fields: [
+            {
+              key: "stats_show_today",
+              kind: "toggle",
+              label: "Today summary",
+              tooltip: "Show the today totals card on the dashboard.",
+            },
+            {
+              key: "stats_show_idle",
+              kind: "toggle",
+              label: "Idle card",
+              tooltip: "Show the idle-time card on the dashboard.",
+            },
+            {
+              key: "stats_show_chart",
+              kind: "toggle",
+              label: "7-day chart",
+              tooltip: "Show the 7-day breakdown chart on the dashboard.",
+            },
+          ],
+        },
+        {
+          title: "Danger zone",
+          fields: [
+            clearStatsField({ key: "stats_clear", label: "Clear stats" }),
           ],
         },
       ],
