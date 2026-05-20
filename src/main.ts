@@ -25,6 +25,7 @@ import {
 } from "./views/timer/timer-edit";
 import { openEvent, closeOpenEvent } from "./shared/stats";
 import { setupVisibility } from "./views/timer/visibility";
+import { setupWindowEvents } from "./views/timer/window-events";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -372,62 +373,26 @@ async function init() {
   if (shouldResume) startTimer();
   setupControls();
   await setupReturnToCorner(() => settings);
-  await listen("tray-toggle-play", () => {
-    if (running) pauseTimer();
-    else startTimer().catch(() => {});
-  });
-  await listen("main-window-hidden", () => {
-    invoke("disable_keep_awake").catch(() => {});
-  });
-  await listen("main-window-shown", () => {
-    if (fsState.isOverlayFullscreen && settings?.keep_awake_during_fullscreen) {
-      invoke("enable_keep_awake").catch(() => {});
-    }
-  });
-  await listen("settings-updated", async () => {
-    if (isEditMode()) exitEditMode(true);
-    const wasRunning = running;
-    settings = await invoke("get_settings");
-    if (!wasRunning) remainingSec = phaseDuration(phase);
-    if (settings.return_to_corner_seconds === 0 && getReturnCornerTimer()) {
-      clearReturnCornerTimer();
-    }
-    syncClickThrough();
-    renderSnoozeButton();
-    render();
-  });
-  await listen("settings-reset", async () => {
-    pauseTimer();
-    if (fsState.snoozeHandle) { clearInterval(fsState.snoozeHandle); fsState.snoozeHandle = null; }
-    settings = await invoke("get_settings");
-    phase = PHASE_WORK;
-    remainingSec = phaseDuration(phase);
-    workSessionsCompleted = 0;
-    musicPausedByApp = false;
-    if (dndEnabledByApp) {
-      invoke("disable_dnd").catch(() => {});
-      dndEnabledByApp = false;
-    }
-    fsState.pendingBreakPhase = null;
-    fsState.isOverlayFullscreen = false;
-    document.body.classList.remove("is-fullscreen");
-    invoke("disable_keep_awake").catch(() => {});
-    clearReturnCornerTimer();
-    try {
-      await invoke("set_window_size");
-    } catch (e) {
-      console.warn("set_window_size failed", e);
-    }
-    applyPhaseClass();
-    renderSnoozeButton();
-    render();
-  });
-  await listen("hotkey-pause", () => {
-    if (running) pauseTimer();
-    else startTimer().catch(() => {});
-  });
-  await listen("hotkey-skip", () => {
-    handlePhaseEnd().catch(() => {});
+  await setupWindowEvents({
+    getRunning: () => running,
+    pause: pauseTimer,
+    start: startTimer,
+    skipPhase: () => handlePhaseEnd(),
+    getSettings: () => settings,
+    setSettings: (s) => { settings = s; },
+    getPhase: () => phase,
+    setPhase: (p) => { phase = p; },
+    setRemainingSec: (v) => { remainingSec = v; },
+    setWorkSessionsCompleted: (v) => { workSessionsCompleted = v; },
+    getMusicPausedByApp: () => musicPausedByApp,
+    setMusicPausedByApp: (v) => { musicPausedByApp = v; },
+    getDndEnabledByApp: () => dndEnabledByApp,
+    setDndEnabledByApp: (v) => { dndEnabledByApp = v; },
+    syncClickThrough,
+    render,
+    applyPhaseClass,
+    exitEditMode,
+    phaseDuration,
   });
 }
 
