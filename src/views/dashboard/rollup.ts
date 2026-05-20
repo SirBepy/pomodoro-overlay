@@ -112,39 +112,3 @@ export function todayTotals(
     work_sessions_completed: workSessionsCompleted(events.filter((ev) => ev.start_ms >= s)),
   };
 }
-
-export interface DayBucket {
-  date_start: number;
-  totals: DayTotals;
-}
-
-export function sevenDayBuckets(
-  events: StatsEvent[],
-  now: number,
-  capMinutes: number,
-): DayBucket[] {
-  const buckets: DayBucket[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const dayStart = startOfDay(now - i * 24 * 60 * 60 * 1000);
-    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-    const dayEvents = events.filter(
-      (e) => (e.end_ms ?? now) >= dayStart && e.start_ms <= dayEnd,
-    );
-    const pt = phaseTotals(dayEvents, dayStart, dayEnd, now);
-    buckets.push({
-      date_start: dayStart,
-      totals: {
-        work_ms: pt.work,
-        short_ms: pt.short,
-        long_ms: pt.long,
-        other_ms: pt.other,
-        snooze_ms: pt.snooze,
-        idle_ms: idleMs(dayEvents, dayStart, dayEnd, now, capMinutes),
-        work_sessions_completed: workSessionsCompleted(
-          dayEvents.filter((ev) => ev.start_ms >= dayStart),
-        ),
-      },
-    });
-  }
-  return buckets;
-}
