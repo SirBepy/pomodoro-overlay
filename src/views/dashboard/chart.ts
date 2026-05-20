@@ -1,15 +1,8 @@
 import type { DayBucket } from "./rollup";
 import { PHASE_COLORS } from "./phase-colors";
+import { fmtHoursMinutes } from "./fmt";
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function fmtMs(ms: number): string {
-  const total = Math.floor(ms / 60000);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m}m`;
-  return `${h}h${m}m`;
-}
 
 export function renderChart(root: HTMLElement, buckets: DayBucket[]) {
   let maxTotal = 0;
@@ -30,10 +23,10 @@ export function renderChart(root: HTMLElement, buckets: DayBucket[]) {
     const day = new Date(b.date_start);
     const label = WEEKDAY[day.getDay()];
     const tooltip = [
-      `${fmtMs(work)} focus`,
-      `${fmtMs(other)} other`,
-      `${fmtMs(breaks)} breaks`,
-      `${fmtMs(idleAndSnooze)} idle/snooze`,
+      `${fmtHoursMinutes(work)} focus`,
+      `${fmtHoursMinutes(other)} other`,
+      `${fmtHoursMinutes(breaks)} breaks`,
+      `${fmtHoursMinutes(idleAndSnooze)} idle/snooze`,
     ].join(" / ");
     const h = (v: number) => `${(v / maxTotal * 100).toFixed(1)}%`;
     return `
