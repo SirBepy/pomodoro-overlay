@@ -17,12 +17,31 @@ let currentSessionId: string | null = null;
 let currentPhase: Phase | null = null;
 let openEventStartMs: number | null = null;
 
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
 function uuid(): string {
   return crypto.randomUUID();
 }
 
 function nowMs(): number {
   return Date.now();
+}
+
+function startHeartbeat(): void {
+  if (heartbeatTimer !== null) return;
+  heartbeatTimer = setInterval(() => {
+    invoke("heartbeat_stats", { nowMs: Date.now() }).catch((e) => {
+      console.warn("stats: heartbeat failed", e);
+    });
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer !== null) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
 }
 
 /**
@@ -47,6 +66,7 @@ export async function openEvent(
     configured_seconds: configuredSeconds,
     ended_by: null,
   };
+  startHeartbeat();
   try {
     await invoke("append_stats_event", { event });
   } catch (e) {
@@ -61,6 +81,7 @@ export async function openEvent(
  * resumeSession=true continues it.
  */
 export async function closeOpenEvent(endedBy: EndedBy): Promise<void> {
+  stopHeartbeat();
   if (openEventStartMs === null) return;
   openEventStartMs = null;
   if (endedBy !== "pause") {
@@ -90,6 +111,7 @@ export async function getRange(
 }
 
 export async function resetStats(): Promise<void> {
+  stopHeartbeat();
   await invoke("reset_stats");
   currentSessionId = null;
   currentPhase = null;
