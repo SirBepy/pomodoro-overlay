@@ -1,14 +1,9 @@
 import type { PieSlice } from "./day-view";
+import { fmtDuration } from "./fmt";
 
 const CX = 50;
 const CY = 50;
 const R = 48;
-
-function fmtDuration(ms: number): string {
-  const totalMin = Math.round(ms / 60_000);
-  if (totalMin < 60) return `${totalMin}m`;
-  return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
-}
 
 // Point on the circle for an angle in degrees, 0 = 12 o'clock, clockwise.
 function point(angleDeg: number): [number, number] {
