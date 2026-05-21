@@ -27,11 +27,16 @@ pub struct StatsEvent {
 pub struct StatsFile {
     pub version: u32,
     pub events: Vec<StatsEvent>,
+    pub last_heartbeat_ms: Option<i64>,
 }
 
 impl Default for StatsFile {
     fn default() -> Self {
-        Self { version: CURRENT_VERSION, events: Vec::new() }
+        Self {
+            version: CURRENT_VERSION,
+            events: Vec::new(),
+            last_heartbeat_ms: None,
+        }
     }
 }
 
@@ -160,25 +165,42 @@ pub fn reset(app: &AppHandle) -> Result<(), String> {
     persist(app, &file)
 }
 
+pub fn heartbeat(app: &AppHandle, now_ms: i64) {
+    let state = app.state::<StatsState>();
+    let mut file = match state.0.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    file.last_heartbeat_ms = Some(now_ms);
+    // No stats-updated emit: heartbeat only updates last_heartbeat_ms, not event data.
+    let _ = persist(app, &file);
+}
+
+fn resolve_recovery_end(heartbeat: Option<i64>, event: &StatsEvent) -> i64 {
+    heartbeat
+        .filter(|&hb| hb > event.start_ms)
+        .unwrap_or_else(|| {
+            let configured_ms = event.configured_seconds.map(|s| s as i64 * 1000);
+            event.start_ms + configured_ms.unwrap_or(DANGLING_GRACE_MS).min(DANGLING_GRACE_MS)
+        })
+}
+
 pub fn close_open_on_startup(app: &AppHandle, _now_ms: i64) {
     let state = app.state::<StatsState>();
     let mut file = match state.0.lock() {
         Ok(g) => g,
         Err(_) => return,
     };
+    let heartbeat = file.last_heartbeat_ms;
     let mut closed = 0usize;
     for event in file.events.iter_mut() {
         if event.end_ms.is_none() {
-            // Real end unknown - cap to a small grace (or the configured end if
-            // shorter) so the dashboard's 1-minute filter drops it rather than
-            // showing a phantom long block.
-            let configured_ms = event.configured_seconds.map(|s| s as i64 * 1000);
-            let cap = configured_ms.unwrap_or(DANGLING_GRACE_MS).min(DANGLING_GRACE_MS);
-            event.end_ms = Some(event.start_ms + cap);
+            event.end_ms = Some(resolve_recovery_end(heartbeat, event));
             event.ended_by = Some("app_close".into());
             closed += 1;
         }
     }
+    file.last_heartbeat_ms = None;
     if closed > 0 {
         log::info!("stats: closed {} dangling open event(s) on startup", closed);
         let _ = persist(app, &file);
@@ -204,5 +226,53 @@ pub fn prune_old_events(app: &AppHandle, retention_days: u32, now_ms: i64) {
     if removed > 0 {
         log::info!("stats: pruned {} event(s) older than {} days", removed, retention_days);
         let _ = persist(app, &file);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn open_event(start_ms: i64, configured_seconds: Option<u32>) -> StatsEvent {
+        StatsEvent {
+            session_id: "test".into(),
+            phase: "work".into(),
+            start_ms,
+            end_ms: None,
+            configured_seconds,
+            ended_by: None,
+        }
+    }
+
+    #[test]
+    fn recovery_uses_heartbeat_when_present_and_after_start() {
+        let event = open_event(1000, Some(1500));
+        let heartbeat = Some(900_000_i64); // 15 minutes after start
+
+        let end = resolve_recovery_end(heartbeat, &event);
+
+        assert_eq!(end, 900_000);
+    }
+
+    #[test]
+    fn recovery_falls_back_to_grace_when_no_heartbeat() {
+        let event = open_event(1000, Some(1500));
+        let heartbeat = None;
+
+        let end = resolve_recovery_end(heartbeat, &event);
+
+        // configured_seconds=1500 -> 1500_000 ms, but capped to DANGLING_GRACE_MS (60_000)
+        assert_eq!(end, 1000 + DANGLING_GRACE_MS);
+    }
+
+    #[test]
+    fn recovery_ignores_heartbeat_before_event_start() {
+        let event = open_event(5000, None);
+        let heartbeat = Some(3000_i64); // before start_ms=5000
+
+        let end = resolve_recovery_end(heartbeat, &event);
+
+        // Heartbeat is before start -> falls back to grace
+        assert_eq!(end, 5000 + DANGLING_GRACE_MS);
     }
 }
