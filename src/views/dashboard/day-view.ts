@@ -1,7 +1,10 @@
 import type { StatsEvent, Phase } from "../../shared/stats";
 import type { DayTotals } from "./rollup";
-import { endOfDay } from "./rollup";
+import { endOfDay, startOfDay, phaseTotals, idleMs } from "./rollup";
 import { PHASE_COLORS } from "./phase-colors";
+
+const IDLE_COLOR = "#f5a623";
+const UNTRACKED_COLOR = "#3a3a3a";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -65,6 +68,7 @@ export function breakdownRows(totals: DayTotals): BreakdownRow[] {
 
 export interface SessionRow {
   startMs: number;
+  endMs: number;
   phase: Phase;
   durationMs: number;
   color: string;
@@ -94,9 +98,11 @@ export function sessionRows(events: StatsEvent[], dayStart: number, now: number)
     const last = merged[merged.length - 1];
     if (last && last.phase === e.phase) {
       last.durationMs += e.durationMs;
+      last.endMs = last.startMs + last.durationMs;
     } else {
       merged.push({
         startMs: e.start,
+        endMs: e.start + e.durationMs,
         phase: e.phase,
         durationMs: e.durationMs,
         color: (PHASE_COLORS as Record<string, string>)[e.phase] ?? "#888",
@@ -105,4 +111,45 @@ export function sessionRows(events: StatsEvent[], dayStart: number, now: number)
   }
 
   return merged;
+}
+
+export interface PieSlice {
+  key: Phase | "idle" | "untracked";
+  label: string;
+  color: string;
+  ms: number;
+  pct: number;
+}
+
+/** Slices of the day's wall-clock time: each phase + idle (gaps within the cap)
+ *  + untracked (the rest - app off / unaccounted). The span is midnight->now for
+ *  today and a full 24h for past days, so the slices always sum to the span. */
+export function pieSlices(
+  events: StatsEvent[],
+  dayStart: number,
+  now: number,
+  capMinutes: number,
+): PieSlice[] {
+  const dayEnd = endOfDay(dayStart);
+  const isToday = dayStart === startOfDay(now);
+  const daySpan = (isToday ? now : dayEnd) - dayStart;
+  if (daySpan <= 0) return [];
+
+  const pt = phaseTotals(events, dayStart, dayEnd, now);
+  const idle = idleMs(events, dayStart, dayEnd, now, capMinutes);
+  const tracked = pt.work + pt.short + pt.long + pt.other + pt.snooze;
+  const untracked = Math.max(0, daySpan - tracked - idle);
+
+  const raw: Array<Omit<PieSlice, "pct">> = [
+    { key: "work", label: "Work", color: PHASE_COLORS.work, ms: pt.work },
+    { key: "short", label: "Short break", color: PHASE_COLORS.short, ms: pt.short },
+    { key: "long", label: "Long break", color: PHASE_COLORS.long, ms: pt.long },
+    { key: "other", label: "Other", color: PHASE_COLORS.other, ms: pt.other },
+    { key: "snooze", label: "Snooze", color: PHASE_COLORS.snooze, ms: pt.snooze },
+    { key: "idle", label: "Idle", color: IDLE_COLOR, ms: idle },
+    { key: "untracked", label: "Untracked", color: UNTRACKED_COLOR, ms: untracked },
+  ];
+  return raw
+    .filter((s) => s.ms > 0)
+    .map((s) => ({ ...s, pct: (s.ms / daySpan) * 100 }));
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { daySegments, breakdownRows, sessionRows } from "../day-view";
+import { daySegments, breakdownRows, sessionRows, pieSlices } from "../day-view";
 import { startOfDay } from "../rollup";
 import { PHASE_COLORS } from "../phase-colors";
 import type { StatsEvent } from "../../../shared/stats";
@@ -116,8 +116,47 @@ describe("sessionRows", () => {
     const rows = sessionRows([ev(day + 9 * HOUR, null, "work")], day, day + 9 * HOUR + 10 * MIN);
     expect(rows[0].durationMs).toBe(10 * MIN);
   });
+  it("sets endMs to start + summed duration of the merged group", () => {
+    const rows = sessionRows([
+      ev(day + 9 * HOUR, day + 9 * HOUR + 25 * MIN, "work"),
+      ev(day + 9 * HOUR + 25 * MIN, day + 9 * HOUR + 42 * MIN, "work"),
+    ], day, day + 24 * HOUR);
+    expect(rows[0].endMs).toBe(rows[0].startMs + 42 * MIN);
+  });
   it("drops groups of one minute or less", () => {
     expect(sessionRows([ev(day + 9 * HOUR, day + 9 * HOUR + 30_000, "work")], day, day + 24 * HOUR)).toHaveLength(0);
     expect(sessionRows([ev(day + 9 * HOUR, day + 9 * HOUR, "work")], day, day + 24 * HOUR)).toHaveLength(0);
+  });
+});
+
+describe("pieSlices", () => {
+  it("past day: untracked fills the rest of a full 24h", () => {
+    const day = startOfDay(1_700_000_000_000);
+    const now = day + 100 * 24 * HOUR; // far future -> past day, span = 24h
+    const slices = pieSlices([ev(day + 9 * HOUR, day + 11 * HOUR, "work")], day, now, 0); // cap 0 -> no idle
+    const work = slices.find((s) => s.key === "work")!;
+    const untracked = slices.find((s) => s.key === "untracked")!;
+    expect(work.ms).toBe(2 * HOUR);
+    expect(untracked.ms).toBe(22 * HOUR);
+    expect(work.pct).toBeCloseTo((2 / 24) * 100, 5);
+  });
+  it("today: span is midnight->now and untracked = span - tracked - idle", () => {
+    const base = 1_700_000_000_000;
+    const day = startOfDay(base);
+    const now = day + 5 * HOUR;
+    const slices = pieSlices([ev(day + 1 * HOUR, day + 3 * HOUR, "work")], day, now, 0);
+    expect(slices.find((s) => s.key === "work")!.ms).toBe(2 * HOUR);
+    expect(slices.find((s) => s.key === "untracked")!.ms).toBe(3 * HOUR);
+  });
+  it("returns empty when the day span is zero", () => {
+    const base = 1_700_000_000_000;
+    const day = startOfDay(base);
+    expect(pieSlices([], day, day, 0)).toEqual([]);
+  });
+  it("drops zero-ms slices", () => {
+    const day = startOfDay(1_700_000_000_000);
+    const now = day + 100 * 24 * HOUR;
+    const slices = pieSlices([ev(day + 9 * HOUR, day + 11 * HOUR, "work")], day, now, 0);
+    expect(slices.some((s) => s.key === "short")).toBe(false);
   });
 });
