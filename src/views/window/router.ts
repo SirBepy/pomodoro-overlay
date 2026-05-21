@@ -28,11 +28,18 @@ function currentRoute(): RouteName {
   return h === "settings" ? "settings" : "dashboard";
 }
 
-function renderSettingsHeader(): void {
-  mountAppBar(headerEl, {
-    title: "Settings",
-    leading: { icon: "arrow-left", action: () => { location.hash = "#dashboard"; } },
-  });
+function onSettingsPageChange(title: string, depth: number, pop: () => void): void {
+  if (depth <= 1) {
+    mountAppBar(headerEl, {
+      title,
+      leading: { icon: "arrow-left", action: () => { location.hash = "#dashboard"; } },
+    });
+  } else {
+    mountAppBar(headerEl, {
+      title,
+      leading: { icon: "arrow-left", action: pop },
+    });
+  }
 }
 
 export function renderDashboardHeader(): void {
@@ -47,8 +54,7 @@ function mount() {
   teardownDashboard();
   bodyEl.innerHTML = "";
   if (route === "settings") {
-    renderSettingsHeader();
-    mountSettings(bodyEl);
+    mountSettings(bodyEl, { onHeaderChange: onSettingsPageChange });
   } else {
     mountDashboard(bodyEl, renderDashboardHeader);
   }
