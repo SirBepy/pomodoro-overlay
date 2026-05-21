@@ -5,13 +5,15 @@ const { listen } = window.__TAURI__.event;
 import { getRange } from "../../shared/stats";
 import { todayTotals, startOfDay, endOfDay } from "./rollup";
 import { renderSummaryStrip } from "./summary-strip";
+import { renderLegend } from "./legend";
 import { renderDayBar } from "./day-bar";
 import { renderBreakdown } from "./breakdown";
-import { renderSessions } from "./sessions";
+import { renderPie } from "./pie";
+import { pieSlices } from "./day-view";
+import { getSelectedDay, setSelectedDay } from "./selected-day";
 
 type RenderHeaderFn = () => void;
 
-let selectedDayStart: number = startOfDay(Date.now());
 let earliestDayStart: number = startOfDay(Date.now());
 
 let unlistenStats: (() => void) | null = null;
@@ -78,27 +80,28 @@ async function refresh(
   stripEl: HTMLElement,
   barEl: HTMLElement,
   breakdownEl: HTMLElement,
-  sessionsEl: HTMLElement,
+  pieEl: HTMLElement,
   renderHeader: RenderHeaderFn,
 ): Promise<void> {
   const now = Date.now();
   const settings = await invoke("get_settings").catch(() => ({})) as any;
   const cap: number = settings?.idle_gap_cap_minutes ?? 240;
 
-  const events = await getRange(startOfDay(selectedDayStart), endOfDay(selectedDayStart));
+  const day = getSelectedDay();
+  const events = await getRange(startOfDay(day), endOfDay(day));
 
-  const isToday = selectedDayStart === startOfDay(now);
-  const nowArg = isToday ? now : endOfDay(selectedDayStart) - 1;
+  const isToday = day === startOfDay(now);
+  const nowArg = isToday ? now : endOfDay(day) - 1;
   const totals = todayTotals(events, nowArg, cap);
 
   renderSummaryStrip(stripEl, totals);
-  renderDayBar(barEl, events, selectedDayStart, now);
+  renderDayBar(barEl, events, day, now);
   renderBreakdown(breakdownEl, totals);
-  renderSessions(sessionsEl, events, selectedDayStart, now);
+  renderPie(pieEl, pieSlices(events, day, now, cap));
   renderHeader();
-  renderPagination(paginationEl, selectedDayStart, earliestDayStart, (newDay) => {
-    selectedDayStart = newDay;
-    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
+  renderPagination(paginationEl, day, earliestDayStart, (newDay) => {
+    setSelectedDay(newDay);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, pieEl, renderHeader);
   });
 }
 
@@ -108,15 +111,19 @@ export function mountDashboard(
 ): void {
   teardown();
 
-  selectedDayStart = startOfDay(Date.now());
-
   root.innerHTML = `
     <div class="dashboard">
       <div id="dash-pagination"></div>
       <div id="dash-strip"></div>
-      <div id="dash-bar"></div>
+      <div id="dash-legend"></div>
+      <div id="dash-bar-row">
+        <div id="dash-bar"></div>
+        <button id="dash-details-btn" class="dash-details-btn" title="Detailed sessions">
+          <i class="ph ph-list-bullets"></i>
+        </button>
+      </div>
       <div id="dash-breakdown"></div>
-      <div id="dash-sessions"></div>
+      <div id="dash-pie"></div>
     </div>
   `;
 
@@ -124,20 +131,25 @@ export function mountDashboard(
   const stripEl = root.querySelector<HTMLElement>("#dash-strip")!;
   const barEl = root.querySelector<HTMLElement>("#dash-bar")!;
   const breakdownEl = root.querySelector<HTMLElement>("#dash-breakdown")!;
-  const sessionsEl = root.querySelector<HTMLElement>("#dash-sessions")!;
+  const pieEl = root.querySelector<HTMLElement>("#dash-pie")!;
+
+  renderLegend(root.querySelector<HTMLElement>("#dash-legend")!);
+  root.querySelector("#dash-details-btn")!.addEventListener("click", () => {
+    location.hash = "#sessions";
+  });
 
   loadEarliestDay().then((earliest) => {
     earliestDayStart = earliest;
-    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, pieEl, renderHeader);
   });
 
   listen("stats-updated", () => {
-    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, pieEl, renderHeader);
   }).then((un) => { unlistenStats = un; });
 
   visibilityHandler = () => {
     if (document.visibilityState === "visible") {
-      refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
+      refresh(paginationEl, stripEl, barEl, breakdownEl, pieEl, renderHeader);
     }
   };
   document.addEventListener("visibilitychange", visibilityHandler);

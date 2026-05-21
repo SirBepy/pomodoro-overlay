@@ -1,10 +1,6 @@
 import type { StatsEvent } from "../../shared/stats";
 import { sessionRows } from "./day-view";
 
-const PHASE_LABEL: Record<string, string> = {
-  work: "Work", short: "Short break", long: "Long break", other: "Other", snooze: "Snooze", idle: "Idle",
-};
-
 function fmt12(ms: number): string {
   const d = new Date(ms);
   const h = d.getHours();
@@ -19,16 +15,20 @@ function fmtDuration(ms: number): string {
   return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
 }
 
+// Rows show a colored dot + time range + duration. The phase is conveyed by the
+// dot color (decoded by the legend), so no phase label is printed.
 export function renderSessions(root: HTMLElement, events: StatsEvent[], dayStart: number, now: number): void {
   const rows = sessionRows(events, dayStart, now);
-  if (rows.length === 0) { root.innerHTML = ""; return; }
+  if (rows.length === 0) {
+    root.innerHTML = `<div class="session-empty">No sessions recorded</div>`;
+    return;
+  }
   root.innerHTML = `
     <div class="session-list">
       ${rows.map((r) => `
         <div class="session-row">
           <span class="session-dot" style="background:${r.color};"></span>
-          <span class="session-time">${fmt12(r.startMs)}</span>
-          <span class="session-phase">${PHASE_LABEL[r.phase] ?? r.phase}</span>
+          <span class="session-range">${fmt12(r.startMs)} - ${fmt12(r.endMs)}</span>
           <span class="session-dur">${fmtDuration(r.durationMs)}</span>
         </div>
       `).join("")}

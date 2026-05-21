@@ -6,11 +6,12 @@ import { applyTheme } from "../../../vendor/tauri_kit/frontend/settings/pages/th
 import { mountAppBar } from "./app-bar";
 import { mountSettings } from "../settings/settings";
 import { mountDashboard, teardown as teardownDashboard } from "../dashboard/dashboard";
+import { mountSessions, teardown as teardownSessions } from "../dashboard/sessions-screen";
 
 // @ts-ignore
 const { invoke } = window.__TAURI__.core;
 
-export type RouteName = "dashboard" | "settings";
+export type RouteName = "dashboard" | "settings" | "sessions";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("window root missing");
@@ -25,7 +26,9 @@ const bodyEl = root.querySelector<HTMLElement>("#window-body")!;
 
 function currentRoute(): RouteName {
   const h = (location.hash || "#dashboard").replace(/^#/, "");
-  return h === "settings" ? "settings" : "dashboard";
+  if (h === "settings") return "settings";
+  if (h === "sessions") return "sessions";
+  return "dashboard";
 }
 
 function onSettingsPageChange(title: string, depth: number, pop: () => void): void {
@@ -52,9 +55,16 @@ export function renderDashboardHeader(): void {
 function mount() {
   const route = currentRoute();
   teardownDashboard();
+  teardownSessions();
   bodyEl.innerHTML = "";
   if (route === "settings") {
     mountSettings(bodyEl, { onHeaderChange: onSettingsPageChange });
+  } else if (route === "sessions") {
+    mountAppBar(headerEl, {
+      title: "Sessions",
+      leading: { icon: "arrow-left", action: () => { location.hash = "#dashboard"; } },
+    });
+    mountSessions(bodyEl);
   } else {
     mountDashboard(bodyEl, renderDashboardHeader);
   }
