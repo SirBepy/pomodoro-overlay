@@ -73,7 +73,20 @@
       "Bash(ls .claude/commit-style.md)",
       "Bash(ls .claude/skills/run-tests/SKILL.md)",
       "Bash(Get-ChildItem vendor/tauri_kit/frontend/settings/styles/)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "WebFetch(domain:www.humanlayer.dev)",
+      "Bash(C:/Users/tecno/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh *)",
+      "PowerShell(npm test *)",
+      "PowerShell(npm run *)",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(git rm *)",
+      "Bash(git grep *)",
+      "PowerShell(Start-Process -FilePath \"powershell\" -ArgumentList \"-NoExit\", \"-Command\", \"cd 'C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay'; npm run tauri dev\" -PassThru | Select-Object Id)",
+      "PowerShell(Start-Sleep -Seconds 15; \\(Invoke-WebRequest -Uri \"http://localhost:3001\" -UseBasicParsing -TimeoutSec 5\\).StatusCode)",
+      "Bash(New-Item *)",
+      "PowerShell(cargo test *)",
+      "PowerShell(cargo check *)"
     ]
   }
 }
