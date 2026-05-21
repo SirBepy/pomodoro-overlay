@@ -35,3 +35,8 @@ pub fn reset_stats(app: AppHandle) -> Result<(), String> {
     let _ = app.emit("stats-updated", ());
     Ok(())
 }
+
+#[tauri::command]
+pub fn heartbeat_stats(app: AppHandle, now_ms: i64) {
+    stats::heartbeat(&app, now_ms);
+}

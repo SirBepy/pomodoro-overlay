@@ -13,7 +13,7 @@ use ipc::commands::{
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
 use ipc::stats::{
-    append_stats_event, close_open_stats_event, get_stats_range, reset_stats,
+    append_stats_event, close_open_stats_event, get_stats_range, heartbeat_stats, reset_stats,
 };
 use settings::{Settings, SettingsState};
 use state::{DndState, PausedSessionsState, TrayPlayPauseItem};
@@ -283,6 +283,7 @@ pub fn run() {
             close_open_stats_event,
             get_stats_range,
             reset_stats,
+            heartbeat_stats,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
