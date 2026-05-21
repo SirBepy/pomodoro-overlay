@@ -265,6 +265,20 @@ export const settingsSchema = defineSchema({
           ],
         },
         {
+          title: "Gaps",
+          fields: [
+            {
+              key: "idle_gap_cap_minutes",
+              kind: "integer" as const,
+              label: "Idle gap cap (minutes)",
+              min: 30,
+              max: 1440,
+              tooltip:
+                "Gaps between recorded activity longer than this are dropped from idle stats. Default 240 (4h) excludes sleep.",
+            },
+          ],
+        },
+        {
           title: "Danger zone",
           fields: [
             clearStatsField({ key: "stats_clear", label: "Clear stats" }),
@@ -289,14 +303,5 @@ export const systemInline = [
     label: "Reset session progress on launch",
     tooltip:
       "When on, every app launch starts at session 1. When off, your previous unfinished session resumes.",
-  },
-  {
-    key: "idle_gap_cap_minutes",
-    kind: "integer" as const,
-    label: "Idle gap cap (minutes)",
-    min: 30,
-    max: 1440,
-    tooltip:
-      "Gaps between recorded activity longer than this are dropped from idle stats. Default 240 (4h) excludes sleep.",
   },
 ];
