@@ -39,6 +39,14 @@ async function loadEarliestDay(): Promise<number> {
   }
 }
 
+function localDateStr(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function renderPagination(
   root: HTMLElement,
   selected: number,
@@ -49,9 +57,9 @@ function renderPagination(
   const todayStart = startOfDay(now);
   const isPrevDisabled = selected <= earliest;
   const isNextDisabled = selected >= todayStart;
-  const minDate = new Date(earliest).toISOString().slice(0, 10);
-  const maxDate = new Date(todayStart).toISOString().slice(0, 10);
-  const currentDate = new Date(selected).toISOString().slice(0, 10);
+  const minDate = localDateStr(earliest);
+  const maxDate = localDateStr(todayStart);
+  const currentDate = localDateStr(selected);
 
   root.innerHTML = `
     <button class="ctx-nav-btn" id="pag-prev" ${isPrevDisabled ? "disabled" : ""}>
