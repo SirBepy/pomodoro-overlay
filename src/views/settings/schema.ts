@@ -213,20 +213,25 @@ export const settingsSchema = defineSchema({
     },
     {
       title: "Sound",
-      fields: [
+      groups: [
         {
-          key: "sound_enabled",
-          kind: "toggle",
-          label: "Play sound when phase ends",
-        },
-        { key: "volume", kind: "range", label: "Volume", min: 0, max: 1, step: 0.05 },
-        {
-          key: "sound_path",
-          kind: "file",
-          label: "Custom sound",
-          pickerCommand: "pick_sound_file",
-          defaultLabel: "Default tone",
-          tooltip: "Pick a .wav or .mp3 to play instead of the default chime.",
+          title: "Playback",
+          fields: [
+            {
+              key: "sound_enabled",
+              kind: "toggle",
+              label: "Play sound when phase ends",
+            },
+            { key: "volume", kind: "range", label: "Volume", min: 0, max: 1, step: 0.05 },
+            {
+              key: "sound_path",
+              kind: "file",
+              label: "Custom sound",
+              pickerCommand: "pick_sound_file",
+              defaultLabel: "Default tone",
+              tooltip: "Pick a .wav or .mp3 to play instead of the default chime.",
+            },
+          ],
         },
       ],
     },
