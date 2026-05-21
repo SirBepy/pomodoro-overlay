@@ -4,7 +4,13 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 const STATS_FILENAME: &str = "stats.json";
-const CURRENT_VERSION: u32 = 1;
+const CURRENT_VERSION: u32 = 2;
+
+/// When the app is killed with a phase still running, the real end time is
+/// unknown. Dangling open events are capped to this grace (or the configured
+/// end if shorter) so unverifiable time is dropped by the dashboard's 1-minute
+/// filter instead of producing a phantom long block.
+const DANGLING_GRACE_MS: i64 = 60_000;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct StatsEvent {
@@ -51,7 +57,7 @@ pub fn load(app: &AppHandle) -> StatsFile {
     if !path.exists() {
         return StatsFile::default();
     }
-    match std::fs::read(&path) {
+    let mut file = match std::fs::read(&path) {
         Ok(bytes) => serde_json::from_slice::<StatsFile>(&bytes).unwrap_or_else(|e| {
             log::warn!("stats: parse failed, starting empty: {e}");
             StatsFile::default()
@@ -60,7 +66,38 @@ pub fn load(app: &AppHandle) -> StatsFile {
             log::warn!("stats: read failed: {e}");
             StatsFile::default()
         }
+    };
+    if migrate(&mut file) {
+        match persist(app, &file) {
+            Ok(()) => log::info!("stats: migrated to v{CURRENT_VERSION}"),
+            Err(e) => log::warn!("stats: migration persist failed: {e}"),
+        }
     }
+    file
+}
+
+/// Bring `file` up to `CURRENT_VERSION`. Returns true if anything changed.
+///
+/// v2: collapse overlapping events into a non-overlapping timeline. Activity is
+/// sequential (one phase at a time); overlapping events were a bug (multiple
+/// open events force-closed to the same instant) that inflated phase totals into
+/// the hundreds of hours. Sort by start and clamp each event's end to the next
+/// event's start. Open events (end_ms = None) are left for `close_open_on_startup`.
+fn migrate(file: &mut StatsFile) -> bool {
+    if file.version >= CURRENT_VERSION {
+        return false;
+    }
+    file.events.sort_by_key(|e| e.start_ms);
+    for i in 0..file.events.len().saturating_sub(1) {
+        let next_start = file.events[i + 1].start_ms;
+        if let Some(end) = file.events[i].end_ms {
+            if end > next_start {
+                file.events[i].end_ms = Some(next_start.max(file.events[i].start_ms));
+            }
+        }
+    }
+    file.version = CURRENT_VERSION;
+    true
 }
 
 pub fn persist(app: &AppHandle, file: &StatsFile) -> Result<(), String> {
@@ -78,6 +115,15 @@ pub fn append(app: &AppHandle, mut event: StatsEvent) -> Result<(), String> {
     }
     let state = app.state::<StatsState>();
     let mut file = state.0.lock().map_err(|e| format!("lock: {e}"))?;
+    // Invariant: at most one event open at a time. If the previous event is
+    // still open, close it to this event's start so activity never overlaps -
+    // overlapping events were the cause of phantom multi-day phase totals.
+    if let Some(last) = file.events.last_mut() {
+        if last.end_ms.is_none() {
+            last.end_ms = Some(event.start_ms.max(last.start_ms));
+            last.ended_by = Some("switch".into());
+        }
+    }
     file.events.push(event);
     persist(app, &file)
 }
@@ -114,7 +160,7 @@ pub fn reset(app: &AppHandle) -> Result<(), String> {
     persist(app, &file)
 }
 
-pub fn close_open_on_startup(app: &AppHandle, fallback_end_ms: i64) {
+pub fn close_open_on_startup(app: &AppHandle, _now_ms: i64) {
     let state = app.state::<StatsState>();
     let mut file = match state.0.lock() {
         Ok(g) => g,
@@ -123,7 +169,12 @@ pub fn close_open_on_startup(app: &AppHandle, fallback_end_ms: i64) {
     let mut closed = 0usize;
     for event in file.events.iter_mut() {
         if event.end_ms.is_none() {
-            event.end_ms = Some(fallback_end_ms.max(event.start_ms));
+            // Real end unknown - cap to a small grace (or the configured end if
+            // shorter) so the dashboard's 1-minute filter drops it rather than
+            // showing a phantom long block.
+            let configured_ms = event.configured_seconds.map(|s| s as i64 * 1000);
+            let cap = configured_ms.unwrap_or(DANGLING_GRACE_MS).min(DANGLING_GRACE_MS);
+            event.end_ms = Some(event.start_ms + cap);
             event.ended_by = Some("app_close".into());
             closed += 1;
         }
