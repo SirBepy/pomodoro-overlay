@@ -5,6 +5,10 @@ import { PHASE_COLORS } from "./phase-colors";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Segments/rows of one minute or less are noise (timer blinks, app-kill grace
+ *  remnants) and are dropped from the dashboard. */
+const MIN_EVENT_MS = 60_000;
+
 export interface BarSegment {
   leftPct: number;
   widthPct: number;
@@ -22,7 +26,7 @@ export function daySegments(events: StatsEvent[], dayStart: number, now: number)
   for (const e of events) {
     const start = Math.max(e.start_ms, dayStart);
     const end = Math.min(e.end_ms ?? now, dayEnd, now); // clip to day end and (for open events) to now
-    if (end <= start) continue;
+    if (end - start <= MIN_EVENT_MS) continue; // drop zero/negative + sub-minute noise
     out.push({
       leftPct: ((start - dayStart) / DAY_MS) * 100,
       widthPct: ((end - start) / DAY_MS) * 100,
@@ -65,22 +69,38 @@ export interface SessionRow {
   color: string;
 }
 
-/** Oldest-first rows for the session list. Clips open events to now; excludes zero-length.
- *  Idle is gap time (not an event), so it does not appear here. */
+/** Oldest-first rows for the session list. Consecutive same-phase events are
+ *  merged into one row (first start, summed duration) to cut duplicate clutter;
+ *  merged groups of one minute or less are dropped. Idle is gap time (not an
+ *  event), so it does not appear here. */
 export function sessionRows(events: StatsEvent[], dayStart: number, now: number): SessionRow[] {
   const dayEnd = endOfDay(dayStart);
-  const rows: SessionRow[] = [];
-  for (const e of events) {
-    const start = Math.max(e.start_ms, dayStart);
-    const end = Math.min(e.end_ms ?? now, dayEnd);
-    if (end <= start) continue;
-    rows.push({
-      startMs: start,
-      phase: e.phase,
-      durationMs: end - start,
-      color: (PHASE_COLORS as Record<string, string>)[e.phase] ?? "#888",
-    });
+
+  // Clip to the day and sort chronologically.
+  const clipped = events
+    .map((e) => {
+      const start = Math.max(e.start_ms, dayStart);
+      const end = Math.min(e.end_ms ?? now, dayEnd);
+      return { phase: e.phase, start, durationMs: end - start };
+    })
+    .filter((e) => e.durationMs > 0)
+    .sort((a, b) => a.start - b.start);
+
+  // Merge runs of the same phase into a single row.
+  const merged: SessionRow[] = [];
+  for (const e of clipped) {
+    const last = merged[merged.length - 1];
+    if (last && last.phase === e.phase) {
+      last.durationMs += e.durationMs;
+    } else {
+      merged.push({
+        startMs: e.start,
+        phase: e.phase,
+        durationMs: e.durationMs,
+        color: (PHASE_COLORS as Record<string, string>)[e.phase] ?? "#888",
+      });
+    }
   }
-  rows.sort((a, b) => a.startMs - b.startMs);
-  return rows;
+
+  return merged.filter((r) => r.durationMs > MIN_EVENT_MS);
 }

@@ -32,6 +32,12 @@ describe("daySegments", () => {
     const day = startOfDay(1_700_000_000_000);
     expect(daySegments([ev(day + HOUR, day + HOUR, "work")], day, day + 24 * HOUR)).toHaveLength(0);
   });
+
+  it("drops segments of one minute or less (noise filter)", () => {
+    const day = startOfDay(1_700_000_000_000);
+    expect(daySegments([ev(day + HOUR, day + HOUR + 30_000, "work")], day, day + 24 * HOUR)).toHaveLength(0);
+    expect(daySegments([ev(day + HOUR, day + HOUR + 90_000, "work")], day, day + 24 * HOUR)).toHaveLength(1);
+  });
 });
 
 describe("breakdownRows", () => {
@@ -58,7 +64,7 @@ describe("breakdownRows", () => {
 
 describe("sessionRows", () => {
   const day = startOfDay(1_700_000_000_000);
-  it("returns oldest-first rows with clipped durations and colors", () => {
+  it("returns oldest-first rows with colors", () => {
     const rows = sessionRows([
       ev(day + 10 * HOUR, day + 10 * HOUR + 25 * MIN, "work"),
       ev(day + 9 * HOUR, day + 9 * HOUR + 5 * MIN, "short"),
@@ -67,11 +73,31 @@ describe("sessionRows", () => {
     expect(rows[0].durationMs).toBe(5 * MIN);
     expect(rows[1].color).toBe(PHASE_COLORS.work);
   });
+  it("merges consecutive same-phase events into one row (summed duration, first start)", () => {
+    const rows = sessionRows([
+      ev(day + 9 * HOUR, day + 9 * HOUR, "work"),                       // 0m blink
+      ev(day + 9 * HOUR, day + 9 * HOUR + 25 * MIN, "work"),            // 25m
+      ev(day + 9 * HOUR + 25 * MIN, day + 9 * HOUR + 42 * MIN, "work"), // 17m
+    ], day, day + 24 * HOUR);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].startMs).toBe(day + 9 * HOUR);
+    expect(rows[0].durationMs).toBe(42 * MIN);
+    expect(rows[0].phase).toBe("work");
+  });
+  it("starts a new row when a different phase intervenes", () => {
+    const rows = sessionRows([
+      ev(day + 9 * HOUR, day + 9 * HOUR + 25 * MIN, "work"),
+      ev(day + 9 * HOUR + 25 * MIN, day + 9 * HOUR + 30 * MIN, "short"),
+      ev(day + 9 * HOUR + 30 * MIN, day + 9 * HOUR + 55 * MIN, "work"),
+    ], day, day + 24 * HOUR);
+    expect(rows.map((r) => r.phase)).toEqual(["work", "short", "work"]);
+  });
   it("clips an open event to now", () => {
     const rows = sessionRows([ev(day + 9 * HOUR, null, "work")], day, day + 9 * HOUR + 10 * MIN);
     expect(rows[0].durationMs).toBe(10 * MIN);
   });
-  it("excludes zero-length events", () => {
+  it("drops groups of one minute or less", () => {
+    expect(sessionRows([ev(day + 9 * HOUR, day + 9 * HOUR + 30_000, "work")], day, day + 24 * HOUR)).toHaveLength(0);
     expect(sessionRows([ev(day + 9 * HOUR, day + 9 * HOUR, "work")], day, day + 24 * HOUR)).toHaveLength(0);
   });
 });

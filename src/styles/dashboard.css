@@ -129,9 +129,10 @@ body {
   color: var(--text-secondary, #aaa);
 }
 
-.summary-chip-work { color: #4a9eff; }
+/* Colors mirror PHASE_COLORS so a phase reads the same in chip, bar, breakdown and list. */
+.summary-chip-work { color: #4a9eff; }   /* work */
 .summary-chip-sessions { color: #7ec77f; }
-.summary-chip-idle { color: #9aa0a6; }
+.summary-chip-idle { color: #f5a623; }   /* idle (amber, matches bar/breakdown/list) */
 
 /* ── 24h day-bar ─────────────────────────────────── */
 #dash-bar { flex-shrink: 0; padding: 8px 10px 2px; }
