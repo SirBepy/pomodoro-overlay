@@ -5,7 +5,9 @@ const { listen } = window.__TAURI__.event;
 import { getRange } from "../../shared/stats";
 import { todayTotals, startOfDay, endOfDay } from "./rollup";
 import { renderSummaryStrip } from "./summary-strip";
-import { renderTimeline } from "./timeline";
+import { renderDayBar } from "./day-bar";
+import { renderBreakdown } from "./breakdown";
+import { renderSessions } from "./sessions";
 
 type RenderHeaderFn = () => void;
 
@@ -74,7 +76,9 @@ function renderPagination(
 async function refresh(
   paginationEl: HTMLElement,
   stripEl: HTMLElement,
-  timelineEl: HTMLElement,
+  barEl: HTMLElement,
+  breakdownEl: HTMLElement,
+  sessionsEl: HTMLElement,
   renderHeader: RenderHeaderFn,
 ): Promise<void> {
   const now = Date.now();
@@ -86,12 +90,15 @@ async function refresh(
   const isToday = selectedDayStart === startOfDay(now);
   const nowArg = isToday ? now : endOfDay(selectedDayStart) - 1;
   const totals = todayTotals(events, nowArg, cap);
+
   renderSummaryStrip(stripEl, totals);
-  renderTimeline(timelineEl, events, selectedDayStart, now);
+  renderDayBar(barEl, events, selectedDayStart, now);
+  renderBreakdown(breakdownEl, totals);
+  renderSessions(sessionsEl, events, selectedDayStart, now);
   renderHeader();
   renderPagination(paginationEl, selectedDayStart, earliestDayStart, (newDay) => {
     selectedDayStart = newDay;
-    refresh(paginationEl, stripEl, timelineEl, renderHeader);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
   });
 }
 
@@ -107,26 +114,30 @@ export function mountDashboard(
     <div class="dashboard">
       <div id="dash-pagination"></div>
       <div id="dash-strip"></div>
-      <div id="dash-timeline"></div>
+      <div id="dash-bar"></div>
+      <div id="dash-breakdown"></div>
+      <div id="dash-sessions"></div>
     </div>
   `;
 
   const paginationEl = root.querySelector<HTMLElement>("#dash-pagination")!;
   const stripEl = root.querySelector<HTMLElement>("#dash-strip")!;
-  const timelineEl = root.querySelector<HTMLElement>("#dash-timeline")!;
+  const barEl = root.querySelector<HTMLElement>("#dash-bar")!;
+  const breakdownEl = root.querySelector<HTMLElement>("#dash-breakdown")!;
+  const sessionsEl = root.querySelector<HTMLElement>("#dash-sessions")!;
 
   loadEarliestDay().then((earliest) => {
     earliestDayStart = earliest;
-    refresh(paginationEl, stripEl, timelineEl, renderHeader);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
   });
 
   listen("stats-updated", () => {
-    refresh(paginationEl, stripEl, timelineEl, renderHeader);
+    refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
   }).then((un) => { unlistenStats = un; });
 
   visibilityHandler = () => {
     if (document.visibilityState === "visible") {
-      refresh(paginationEl, stripEl, timelineEl, renderHeader);
+      refresh(paginationEl, stripEl, barEl, breakdownEl, sessionsEl, renderHeader);
     }
   };
   document.addEventListener("visibilitychange", visibilityHandler);
