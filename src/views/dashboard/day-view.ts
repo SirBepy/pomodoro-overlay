@@ -40,21 +40,22 @@ export function daySegments(events: StatsEvent[], dayStart: number, now: number)
 }
 
 export interface BreakdownRow {
-  key: "work" | "breaks" | "idle" | "other";
+  key: "work" | "short" | "long" | "other" | "idle";
   label: string;
   ms: number;
   color: string;
   pct: number;
 }
 
-/** Buckets for the breakdown block: work / breaks(short+long) / idle / other.
- *  Drops zero buckets; pct = share of summed non-zero buckets. */
+/** One row per phase (work / short break / long break / other) plus idle, each
+ *  in its real phase color. Drops zero buckets; pct = share of summed buckets. */
 export function breakdownRows(totals: DayTotals): BreakdownRow[] {
   const raw: Array<Omit<BreakdownRow, "pct">> = [
     { key: "work", label: "Work", ms: totals.work_ms, color: PHASE_COLORS.work },
-    { key: "breaks", label: "Breaks", ms: totals.short_ms + totals.long_ms, color: PHASE_COLORS.short },
-    { key: "idle", label: "Idle", ms: totals.idle_ms, color: PHASE_COLORS.idle },
+    { key: "short", label: "Short break", ms: totals.short_ms, color: PHASE_COLORS.short },
+    { key: "long", label: "Long break", ms: totals.long_ms, color: PHASE_COLORS.long },
     { key: "other", label: "Other", ms: totals.other_ms, color: PHASE_COLORS.other },
+    { key: "idle", label: "Idle", ms: totals.idle_ms, color: PHASE_COLORS.idle },
   ];
   const nonZero = raw.filter((r) => r.ms > 0);
   const sum = nonZero.reduce((acc, r) => acc + r.ms, 0);
@@ -76,17 +77,18 @@ export interface SessionRow {
 export function sessionRows(events: StatsEvent[], dayStart: number, now: number): SessionRow[] {
   const dayEnd = endOfDay(dayStart);
 
-  // Clip to the day and sort chronologically.
+  // Clip to the day, DROP sub-minute noise first (so a tiny blip between two
+  // same-phase blocks doesn't split them), then sort chronologically.
   const clipped = events
     .map((e) => {
       const start = Math.max(e.start_ms, dayStart);
       const end = Math.min(e.end_ms ?? now, dayEnd);
       return { phase: e.phase, start, durationMs: end - start };
     })
-    .filter((e) => e.durationMs > 0)
+    .filter((e) => e.durationMs > MIN_EVENT_MS)
     .sort((a, b) => a.start - b.start);
 
-  // Merge runs of the same phase into a single row.
+  // Merge runs of the same phase (now adjacent) into a single row.
   const merged: SessionRow[] = [];
   for (const e of clipped) {
     const last = merged[merged.length - 1];
@@ -102,5 +104,5 @@ export function sessionRows(events: StatsEvent[], dayStart: number, now: number)
     }
   }
 
-  return merged.filter((r) => r.durationMs > MIN_EVENT_MS);
+  return merged;
 }

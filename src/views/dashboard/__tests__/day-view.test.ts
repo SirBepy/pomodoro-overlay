@@ -45,16 +45,15 @@ describe("breakdownRows", () => {
     work_ms: 90 * MIN, short_ms: 20 * MIN, long_ms: 10 * MIN,
     other_ms: 0, snooze_ms: 0, idle_ms: 60 * MIN, work_sessions_completed: 3,
   };
-  it("combines short+long into breaks and drops zero buckets", () => {
+  it("emits one row per non-zero phase in real colors", () => {
     const rows = breakdownRows(totals);
     const keys = rows.map((r) => r.key);
-    expect(keys).toEqual(["work", "breaks", "idle"]); // other=0 dropped
-    const breaks = rows.find((r) => r.key === "breaks")!;
-    expect(breaks.ms).toBe(30 * MIN);
-    expect(breaks.color).toBe(PHASE_COLORS.short);
+    expect(keys).toEqual(["work", "short", "long", "idle"]); // other=0 dropped
+    expect(rows.find((r) => r.key === "short")!.color).toBe(PHASE_COLORS.short);
+    expect(rows.find((r) => r.key === "long")!.color).toBe(PHASE_COLORS.long);
   });
   it("computes pct as share of summed buckets", () => {
-    const rows = breakdownRows(totals); // sum = 90+30+60 = 180
+    const rows = breakdownRows(totals); // sum = 90+20+10+60 = 180
     expect(rows.find((r) => r.key === "work")!.pct).toBeCloseTo(50, 5);
   });
   it("returns empty array when everything is zero", () => {
@@ -83,6 +82,27 @@ describe("sessionRows", () => {
     expect(rows[0].startMs).toBe(day + 9 * HOUR);
     expect(rows[0].durationMs).toBe(42 * MIN);
     expect(rows[0].phase).toBe("work");
+  });
+  it("merges same-phase blocks across a dropped sub-minute event between them", () => {
+    // 2:23 work 4m, 30s 'other' blip, 2:28 work 25m -> one Work row of 29m
+    const rows = sessionRows([
+      ev(day + 9 * HOUR, day + 9 * HOUR + 4 * MIN, "work"),
+      ev(day + 9 * HOUR + 4 * MIN, day + 9 * HOUR + 4 * MIN + 30_000, "other"),
+      ev(day + 9 * HOUR + 5 * MIN, day + 9 * HOUR + 30 * MIN, "work"),
+    ], day, day + 24 * HOUR);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].phase).toBe("work");
+    expect(rows[0].durationMs).toBe(29 * MIN);
+  });
+  it("merges two long breaks split only by a sub-minute event", () => {
+    const rows = sessionRows([
+      ev(day + 9 * HOUR, day + 9 * HOUR + 12 * MIN, "long"),
+      ev(day + 9 * HOUR + 12 * MIN, day + 9 * HOUR + 12 * MIN + 20_000, "work"),
+      ev(day + 9 * HOUR + 13 * MIN, day + 9 * HOUR + 15 * MIN, "long"),
+    ], day, day + 24 * HOUR);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].phase).toBe("long");
+    expect(rows[0].durationMs).toBe(14 * MIN);
   });
   it("starts a new row when a different phase intervenes", () => {
     const rows = sessionRows([
