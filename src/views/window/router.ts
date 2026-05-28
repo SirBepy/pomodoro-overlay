@@ -1,6 +1,7 @@
 import "@phosphor-icons/web/regular";
 import "@phosphor-icons/web/fill";
 import "../../../vendor/tauri_kit/frontend/settings/styles.css";
+import "../../../vendor/tauri_kit/frontend/settings/palettes/sirbepy-default.css";
 import "../../styles/dashboard.css";
 import { applyTheme } from "../../../vendor/tauri_kit/frontend/settings/pages/theme";
 import { mountAppBar } from "./app-bar";
@@ -75,9 +76,9 @@ window.addEventListener("hashchange", mount);
 (async () => {
   try {
     const s = await invoke<any>("get_settings");
-    applyTheme(s?.__kit_theme ?? "system");
+    applyTheme(s?.__kit_theme ?? "system", s?.__kit_palette ?? "void");
   } catch {
-    applyTheme("system");
+    applyTheme("system", "void");
   }
   mount();
 })();
