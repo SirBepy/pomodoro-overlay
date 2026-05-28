@@ -52,8 +52,8 @@ let musicPausedByApp = false;
 let dndEnabledByApp = false;
 let intervalStartMs = 0;        // wall-clock when current run-interval began
 let intervalStartRemainingSec = 0; // remainingSec snapshot at that moment
-let meetingActive = false;
 let meetingPolicy = null;
+const MEETING_GRACE_MS = 120000; // signal must stay clear 2 min before auto-reverting
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -234,7 +234,7 @@ async function handlePhaseEnd(natural = false) {
     await closeOpenEvent(natural ? "natural" : "skip");
   }
   pauseTimer();
-  if (natural && !meetingActive) playSound().catch(() => {});
+  if (natural && !meetingPolicy?.active) playSound().catch(() => {});
   const ended = phase;
 
   if (ended === PHASE_SNOOZE) {
@@ -266,7 +266,7 @@ async function handlePhaseEnd(natural = false) {
   setPhaseInternal(next);
   invoke("show_main_window").catch(() => {});
 
-  if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingActive) {
+  if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingPolicy?.active) {
     await enterOverlayFullscreen();
     if (settings.auto_start_break) await startTimer();
   } else {
@@ -307,7 +307,14 @@ function setupControls() {
     startSnooze();
   });
   document.querySelectorAll(".tab-btn").forEach((b) => {
-    b.addEventListener("click", () => setPhase(b.dataset.phase));
+    b.addEventListener("click", () => {
+      // Manually leaving the Other phase = "meeting's over": drop meeting-mode
+      // so notifications/fullscreen resume, without forcing a phase (user picked).
+      if (meetingPolicy?.active && b.dataset.phase !== PHASE_OTHER) {
+        meetingPolicy.leaveMeetingPhase();
+      }
+      setPhase(b.dataset.phase);
+    });
   });
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupResizeHandles();
@@ -379,20 +386,20 @@ async function init() {
   setupControls();
   meetingPolicy = new MeetingPolicy({
     isEnabled: () => !!settings?.meeting_detection_enabled,
+    graceMs: () => MEETING_GRACE_MS,
     onEnter: () => {
-      meetingActive = true;
       if (fsState.isOverlayFullscreen) exitOverlayFullscreen();
       setPhase(PHASE_OTHER);
       if (!running) startTimer().catch(() => {});
     },
     onExit: () => {
-      meetingActive = false;
+      // Auto-revert / hotkey-off: mirror the existing Other -> Work transition.
       pauseTimer("switch");
       setPhase(PHASE_WORK);
     },
   });
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
-  await listen("hotkey-meeting-toggle", () => meetingPolicy.toggleHotkey());
+  await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
   await setupReturnToCorner(() => settings);
   await setupWindowEvents({
     getRunning: () => running,
