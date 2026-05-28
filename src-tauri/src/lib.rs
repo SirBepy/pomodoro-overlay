@@ -169,6 +169,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_kit_updater::plugin())
+        .plugin(tauri_kit_meeting::plugin(tauri_kit_meeting::MeetingConfig::default()))
         .plugin(tauri_kit_settings::with_logging())
         .plugin(tauri_kit_settings::with_kit_commands())
         .setup(|app| {
@@ -176,13 +177,33 @@ pub fn run() {
             let settings = settings::load(&handle);
             log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
             apply_autostart(&handle, settings.autostart);
-            hotkeys::register_hotkeys(&handle, None, None, None, settings.keybind_pause.as_deref(), settings.keybind_skip.as_deref(), settings.keybind_show_hide.as_deref());
+            tauri_kit_meeting::set_apps(
+                &handle,
+                settings
+                    .meeting_apps
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            );
+            hotkeys::register_hotkeys(
+                &handle,
+                None,
+                None,
+                None,
+                None,
+                settings.keybind_pause.as_deref(),
+                settings.keybind_skip.as_deref(),
+                settings.keybind_show_hide.as_deref(),
+                settings.keybind_meeting_toggle.as_deref(),
+            );
             if let Some(win) = handle.get_webview_window("main") {
                 let (w, h) = settings.expanded_size();
                 let _ = resize_and_anchor(&win, &settings, w, h);
                 let _ = win.set_always_on_top(settings.always_on_top);
                 let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 100u32)));
                 let _ = win.show();
+                let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
             }
             handle.manage(SettingsState(Mutex::new(settings)));
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));

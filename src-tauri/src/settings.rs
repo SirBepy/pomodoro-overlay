@@ -36,6 +36,10 @@ pub struct Settings {
     pub keybind_show_hide: Option<String>,
     pub idle_gap_cap_minutes: u32,
     pub stats_retention_days: u32,
+    pub meeting_detection_enabled: bool,
+    pub meeting_hide_from_capture: bool,
+    pub meeting_apps: String,
+    pub keybind_meeting_toggle: Option<String>,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -74,6 +78,10 @@ impl Default for Settings {
             keybind_show_hide: None,
             idle_gap_cap_minutes: 240,
             stats_retention_days: 30,
+            meeting_detection_enabled: true,
+            meeting_hide_from_capture: true,
+            meeting_apps: tauri_kit_meeting::default_meeting_apps().join(", "),
+            keybind_meeting_toggle: None,
             kit: KitSettings::default(),
         }
     }

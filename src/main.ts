@@ -26,6 +26,8 @@ import {
 import { openEvent, closeOpenEvent } from "./shared/stats";
 import { setupVisibility } from "./views/timer/visibility";
 import { setupWindowEvents } from "./views/timer/window-events";
+import { MeetingPolicy } from "./views/timer/meeting-mode";
+import { onMeetingChanged } from "../vendor/tauri_kit/frontend/meeting/subscribe";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -50,6 +52,8 @@ let musicPausedByApp = false;
 let dndEnabledByApp = false;
 let intervalStartMs = 0;        // wall-clock when current run-interval began
 let intervalStartRemainingSec = 0; // remainingSec snapshot at that moment
+let meetingActive = false;
+let meetingPolicy = null;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -230,7 +234,7 @@ async function handlePhaseEnd(natural = false) {
     await closeOpenEvent(natural ? "natural" : "skip");
   }
   pauseTimer();
-  if (natural) playSound().catch(() => {});
+  if (natural && !meetingActive) playSound().catch(() => {});
   const ended = phase;
 
   if (ended === PHASE_SNOOZE) {
@@ -262,7 +266,7 @@ async function handlePhaseEnd(natural = false) {
   setPhaseInternal(next);
   invoke("show_main_window").catch(() => {});
 
-  if (ended === PHASE_WORK && settings.fullscreen_on_focus_end) {
+  if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingActive) {
     await enterOverlayFullscreen();
     if (settings.auto_start_break) await startTimer();
   } else {
@@ -373,6 +377,22 @@ async function init() {
   render();
   if (shouldResume) startTimer();
   setupControls();
+  meetingPolicy = new MeetingPolicy({
+    isEnabled: () => !!settings?.meeting_detection_enabled,
+    onEnter: () => {
+      meetingActive = true;
+      if (fsState.isOverlayFullscreen) exitOverlayFullscreen();
+      setPhase(PHASE_OTHER);
+      if (!running) startTimer().catch(() => {});
+    },
+    onExit: () => {
+      meetingActive = false;
+      pauseTimer("switch");
+      setPhase(PHASE_WORK);
+    },
+  });
+  await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
+  await listen("hotkey-meeting-toggle", () => meetingPolicy.toggleHotkey());
   await setupReturnToCorner(() => settings);
   await setupWindowEvents({
     getRunning: () => running,

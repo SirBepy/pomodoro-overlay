@@ -14,9 +14,14 @@ pub fn save_settings(
     state: State<'_, SettingsState>,
     settings: Settings,
 ) -> Result<(), String> {
-    let (old_pause, old_skip, old_show_hide) = {
+    let (old_pause, old_skip, old_show_hide, old_meeting) = {
         let s = state.0.lock().unwrap();
-        (s.keybind_pause.clone(), s.keybind_skip.clone(), s.keybind_show_hide.clone())
+        (
+            s.keybind_pause.clone(),
+            s.keybind_skip.clone(),
+            s.keybind_show_hide.clone(),
+            s.keybind_meeting_toggle.clone(),
+        )
     };
     {
         let mut s = state.0.lock().unwrap();
@@ -30,14 +35,28 @@ pub fn save_settings(
         let _ = win.set_always_on_top(settings.always_on_top);
     }
     apply_autostart(&app, settings.autostart);
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
+    }
+    tauri_kit_meeting::set_apps(
+        &app,
+        settings
+            .meeting_apps
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+    );
     crate::hotkeys::register_hotkeys(
         &app,
         old_pause.as_deref(),
         old_skip.as_deref(),
         old_show_hide.as_deref(),
+        old_meeting.as_deref(),
         settings.keybind_pause.as_deref(),
         settings.keybind_skip.as_deref(),
         settings.keybind_show_hide.as_deref(),
+        settings.keybind_meeting_toggle.as_deref(),
     );
     Ok(())
 }

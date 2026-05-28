@@ -212,6 +212,43 @@ export const settingsSchema = defineSchema({
       ],
     },
     {
+      title: "Meeting mode",
+      groups: [
+        {
+          title: "Detection",
+          fields: [
+            {
+              key: "meeting_detection_enabled",
+              kind: "toggle",
+              label: "Auto-detect meetings",
+              tooltip:
+                "When you're in a call (camera/mic in use, or a known meeting app playing audio), block fullscreen breaks, mute sounds, and switch to the Other timer.",
+            },
+            {
+              key: "meeting_hide_from_capture",
+              kind: "toggle",
+              label: "Hide overlay from screen share",
+              tooltip:
+                "Keep the overlay visible to you but invisible to screen capture and screen-share.",
+            },
+            {
+              key: "meeting_apps",
+              kind: "text",
+              label: "Meeting apps",
+              tooltip:
+                "Comma-separated process names checked for active audio (covers calls with camera and mic off). Edit to add or remove apps. Takes effect when you save.",
+            },
+          ],
+        },
+        {
+          title: "Manual toggle",
+          fields: [
+            keybindField({ key: "keybind_meeting_toggle", label: "Toggle meeting mode" }),
+          ],
+        },
+      ],
+    },
+    {
       title: "Sound",
       groups: [
         {

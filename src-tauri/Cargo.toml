@@ -21,6 +21,8 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 uuid = { version = "1", features = ["v4"] }
 tauri_kit_settings = { path = "../vendor/tauri_kit/tauri/settings" }
 tauri_kit_updater = { path = "../vendor/tauri_kit/tauri/updater" }
+tauri_kit_meeting = { path = "../vendor/tauri_kit/tauri/meeting" }
+tauri_kit_window = { path = "../vendor/tauri_kit/tauri/window" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61", features = [

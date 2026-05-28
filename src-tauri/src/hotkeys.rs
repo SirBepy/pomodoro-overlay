@@ -14,15 +14,17 @@ pub fn register_hotkeys(
     old_pause: Option<&str>,
     old_skip: Option<&str>,
     old_show_hide: Option<&str>,
+    old_meeting: Option<&str>,
     new_pause: Option<&str>,
     new_skip: Option<&str>,
     new_show_hide: Option<&str>,
+    new_meeting: Option<&str>,
 ) {
     let gs = app.global_shortcut();
 
     // Unregister previous shortcuts (dedup so a shared combo isn't unregistered twice).
     let mut unregistered: HashSet<&str> = HashSet::new();
-    for s in [old_pause, old_skip, old_show_hide].into_iter().flatten() {
+    for s in [old_pause, old_skip, old_show_hide, old_meeting].into_iter().flatten() {
         if unregistered.insert(s) {
             let _ = gs.unregister(s);
         }
@@ -67,6 +69,19 @@ pub fn register_hotkeys(
                 }
             }) {
                 log::warn!("hotkeys: register show/hide '{}' failed: {}", s, e);
+            }
+        }
+    }
+
+    if let Some(s) = new_meeting {
+        if registered.insert(s) {
+            let handle = app.clone();
+            if let Err(e) = gs.on_shortcut(s, move |_app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    let _ = handle.emit("hotkey-meeting-toggle", ());
+                }
+            }) {
+                log::warn!("hotkeys: register meeting '{}' failed: {}", s, e);
             }
         }
     }
