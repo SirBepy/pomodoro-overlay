@@ -1,7 +1,7 @@
 use crate::settings::{self, Settings, SettingsState};
 use crate::state::{PausedSessionsState, TrayPlayPauseItem};
 use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
-use tauri::{image::Image, AppHandle, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{image::Image, AppHandle, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
 pub fn get_settings(state: State<SettingsState>) -> Settings {
@@ -96,8 +96,11 @@ pub fn open_settings_window(app: AppHandle, route: Option<String>) -> Result<(),
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
+        // Show without stealing keyboard focus: this fires on phase transitions
+        // (incl. the fullscreen break) and grabbing focus would capture the user's
+        // next keystroke (e.g. Space pausing the timer mid-typing). The overlay is
+        // always-on-top so it's visible regardless; clicks still focus it.
         let _ = w.show();
-        let _ = w.set_focus();
     }
     if let Some(t) = app.tray_by_id("main-tray") {
         let icon = app
@@ -212,10 +215,41 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
             .or(win.primary_monitor().map_err(|e| e.to_string())?)
             .ok_or_else(|| "no monitor".to_string())?;
         let work = monitor.work_area();
-        win.set_size(PhysicalSize::new(work.size.width, work.size.height))
-            .map_err(|e| e.to_string())?;
-        win.set_position(PhysicalPosition::new(work.position.x, work.position.y))
-            .map_err(|e| e.to_string())?;
+        #[cfg(target_os = "windows")]
+        {
+            // Show + size + topmost WITHOUT activating, so going fullscreen never
+            // steals keyboard focus from whatever the user is typing in. Tauri's
+            // set_size/set_position activate the window (focus theft -> a focused
+            // button captures Space -> pauses the timer).
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                SetWindowPos, ShowWindow, HWND_TOPMOST, SWP_NOACTIVATE, SW_SHOWNOACTIVATE,
+            };
+            let handle = win.window_handle().map_err(|e| e.to_string())?;
+            let hwnd = match handle.as_raw() {
+                RawWindowHandle::Win32(h) => h.hwnd.get() as *mut std::ffi::c_void,
+                _ => return Err("not a Win32 window".into()),
+            };
+            unsafe {
+                ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+                SetWindowPos(
+                    hwnd,
+                    HWND_TOPMOST,
+                    work.position.x,
+                    work.position.y,
+                    work.size.width as i32,
+                    work.size.height as i32,
+                    SWP_NOACTIVATE,
+                );
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            win.set_size(tauri::PhysicalSize::new(work.size.width, work.size.height))
+                .map_err(|e| e.to_string())?;
+            win.set_position(PhysicalPosition::new(work.position.x, work.position.y))
+                .map_err(|e| e.to_string())?;
+        }
     } else {
         let s = app.state::<SettingsState>();
         let settings = s.0.lock().unwrap().clone();
