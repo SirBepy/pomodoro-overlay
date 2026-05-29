@@ -40,6 +40,8 @@ pub struct Settings {
     pub meeting_hide_from_capture: bool,
     pub meeting_apps: String,
     pub keybind_meeting_toggle: Option<String>,
+    pub meeting_end_action: String,
+    pub meeting_break_fullscreen: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -82,6 +84,8 @@ impl Default for Settings {
             meeting_hide_from_capture: true,
             meeting_apps: tauri_kit_meeting::default_meeting_apps().join(", "),
             keybind_meeting_toggle: None,
+            meeting_end_action: "break".to_string(),
+            meeting_break_fullscreen: true,
             kit: KitSettings::default(),
         }
     }

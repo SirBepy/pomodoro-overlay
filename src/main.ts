@@ -53,7 +53,10 @@ let dndEnabledByApp = false;
 let intervalStartMs = 0;        // wall-clock when current run-interval began
 let intervalStartRemainingSec = 0; // remainingSec snapshot at that moment
 let meetingPolicy = null;
-const MEETING_GRACE_MS = 120000; // signal must stay clear 2 min before auto-reverting
+// Signal must stay clear this long before a meeting counts as ended. Safe to keep
+// short: meeting apps (incl. Google Meet) hold the mic while muted, so the signal
+// only drops when you actually leave - not when you mute or turn the camera off.
+const MEETING_GRACE_MS = 20000;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
@@ -215,6 +218,16 @@ function pauseTimer(endedBy = "pause") {
   render();
 }
 
+// Manually leaving the Other phase (tab click, skip button, skip keybind) means
+// "meeting's over": drop meeting-mode so sounds/fullscreen resume and the next
+// meeting can re-trigger. The policy's own enter targets Other (skipped here)
+// and its exit sets active=false first, so policy-driven changes never match.
+function leaveMeetingIfActive(nextPhase) {
+  if (meetingPolicy?.active && nextPhase !== PHASE_OTHER) {
+    meetingPolicy.leaveMeetingPhase();
+  }
+}
+
 function setPhase(p) {
   // Snooze is cancelled when user manually switches phase
   if (fsState.snoozeHandle) {
@@ -222,6 +235,7 @@ function setPhase(p) {
     fsState.snoozeHandle = null;
     fsState.pendingBreakPhase = null;
   }
+  leaveMeetingIfActive(p);
   pauseTimer("switch");
   phase = p;
   remainingSec = phaseDuration(phase);
@@ -281,6 +295,7 @@ async function handlePhaseEnd(natural = false) {
 
 // Internal phase switch without fullscreen/snooze side effects
 function setPhaseInternal(p) {
+  leaveMeetingIfActive(p);
   pauseTimer();
   phase = p;
   remainingSec = phaseDuration(phase);
@@ -307,14 +322,7 @@ function setupControls() {
     startSnooze();
   });
   document.querySelectorAll(".tab-btn").forEach((b) => {
-    b.addEventListener("click", () => {
-      // Manually leaving the Other phase = "meeting's over": drop meeting-mode
-      // so notifications/fullscreen resume, without forcing a phase (user picked).
-      if (meetingPolicy?.active && b.dataset.phase !== PHASE_OTHER) {
-        meetingPolicy.leaveMeetingPhase();
-      }
-      setPhase(b.dataset.phase);
-    });
+    b.addEventListener("click", () => setPhase(b.dataset.phase));
   });
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupResizeHandles();
@@ -392,14 +400,24 @@ async function init() {
       setPhase(PHASE_OTHER);
       if (!running) startTimer().catch(() => {});
     },
-    onExit: () => {
-      // Auto-revert / hotkey-off: mirror the existing Other -> Work transition.
+    onExit: async () => {
+      // Meeting ended (grace) or hotkey-off: apply the configured end action.
+      const action = settings?.meeting_end_action ?? "break";
+      if (action === "nothing") return; // keep counting in Other
       pauseTimer("switch");
-      setPhase(PHASE_WORK);
+      if (action === "break") {
+        setPhase(PHASE_SHORT);
+        if (settings?.meeting_break_fullscreen) await enterOverlayFullscreen();
+        startTimer().catch(() => {});
+      } else {
+        setPhase(PHASE_WORK); // "focus"
+      }
     },
   });
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
+  // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
+  setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
   await setupWindowEvents({
     getRunning: () => running,

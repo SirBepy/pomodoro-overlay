@@ -5,56 +5,70 @@ export interface MeetingPolicyHooks {
   isEnabled: () => boolean;
   /** Grace period (ms) the raw signal must stay clear before auto-reverting. */
   graceMs: () => number;
+  /** Injectable clock (defaults to Date.now) - lets tests control time. */
+  now?: () => number;
 }
 
 /**
  * Applies the pomodoro meeting-mode policy on top of the kit's raw edges:
  *  - rising raw edge (enabled, not suppressed) -> enter
- *  - falling raw edge -> start a grace timer; auto-revert (onExit) only if the
- *    signal stays clear for graceMs. A new rising edge cancels the pending revert.
- *    Native calls keep the audio signal alive through mute, so they never hit
- *    grace mid-call; brief mic drops (e.g. browser mute) are ridden out.
- *  - leaveMeetingPhase(): user manually switched away from the Other phase =
- *    "I'm done" -> deactivate WITHOUT reverting phase (the user already chose
- *    one), and suppress re-entry until the signal clears.
- *  - forceToggle(): optional global hotkey - force on when idle (covers
- *    undetectable silent browser calls), force off + revert when active.
- *  - suppression lifts when raw goes false again, so a manual exit mid-call
- *    won't immediately re-trigger.
+ *  - falling raw edge -> arm a wall-clock grace deadline; tick() auto-reverts
+ *    (onExit) once now >= deadline. A new rising edge cancels it. Native calls
+ *    keep the audio signal alive through mute, so they never hit grace mid-call;
+ *    brief mic drops are ridden out.
+ *  - leaveMeetingPhase(): user manually left the Other phase = "I'm done" ->
+ *    deactivate WITHOUT onExit (the user already chose a phase), and suppress
+ *    re-entry until the signal clears.
+ *  - forceToggle(): optional global hotkey - force on when idle, force off when
+ *    active (runs onExit -> the end action).
+ *
+ * The grace uses a wall-clock deadline checked by tick() (driven by an external
+ * interval) rather than setTimeout, so background timer throttling or PC sleep
+ * can't stop the revert - the next tick simply sees the deadline has passed.
  */
 export class MeetingPolicy {
   active = false;
   private lastRaw = false;
   private suppressed = false;
-  private graceTimer: ReturnType<typeof setTimeout> | null = null;
+  private graceDeadline: number | null = null;
+  private now: () => number;
 
-  constructor(private hooks: MeetingPolicyHooks) {}
+  constructor(private hooks: MeetingPolicyHooks) {
+    this.now = hooks.now ?? (() => Date.now());
+  }
 
   onRaw(raw: boolean): void {
     const rising = raw && !this.lastRaw;
     this.lastRaw = raw;
 
     if (raw) {
-      this.clearGrace(); // signal is back -> cancel any pending auto-revert
+      this.graceDeadline = null; // signal is back -> cancel any pending revert
       if (rising && this.hooks.isEnabled() && !this.suppressed && !this.active) {
         this.enter();
       }
       return;
     }
-    // raw cleared: re-arm auto-detection, and begin the grace countdown if active.
+    // raw cleared: re-arm auto-detection, and start the grace countdown if active.
     this.suppressed = false;
-    if (this.active) this.startGrace();
+    if (this.active) this.graceDeadline = this.now() + this.hooks.graceMs();
+  }
+
+  /** Drive the grace-based auto-revert. Call periodically from an interval. */
+  tick(): void {
+    if (this.active && this.graceDeadline !== null && this.now() >= this.graceDeadline) {
+      this.exit();
+    }
   }
 
   /** User switched away from the Other phase: deactivate without reverting phase. */
   leaveMeetingPhase(): void {
     if (!this.active) return;
     this.suppressed = this.lastRaw; // still in a call? don't re-enter until it ends
-    this.clearGrace();
+    this.graceDeadline = null;
     this.active = false;
   }
 
-  /** Optional global hotkey: force on when idle, force off (+ revert) when active. */
+  /** Optional global hotkey: force on when idle, force off (+ end action) when active. */
   forceToggle(): void {
     if (this.active) {
       this.suppressed = this.lastRaw;
@@ -65,29 +79,14 @@ export class MeetingPolicy {
   }
 
   private enter(): void {
-    this.clearGrace();
+    this.graceDeadline = null;
     this.active = true;
     this.hooks.onEnter();
   }
 
   private exit(): void {
-    this.clearGrace();
+    this.graceDeadline = null;
     this.active = false;
     this.hooks.onExit();
-  }
-
-  private startGrace(): void {
-    this.clearGrace();
-    this.graceTimer = setTimeout(() => {
-      this.graceTimer = null;
-      if (this.active) this.exit();
-    }, this.hooks.graceMs());
-  }
-
-  private clearGrace(): void {
-    if (this.graceTimer !== null) {
-      clearTimeout(this.graceTimer);
-      this.graceTimer = null;
-    }
   }
 }

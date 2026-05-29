@@ -238,6 +238,26 @@ export const settingsSchema = defineSchema({
               tooltip:
                 "Comma-separated process names checked for active audio (covers calls with camera and mic off). Edit to add or remove apps. Takes effect when you save.",
             },
+            {
+              key: "meeting_end_action",
+              kind: "select",
+              label: "When a meeting ends",
+              options: [
+                { value: "break", label: "Start a short break" },
+                { value: "focus", label: "Go to focus" },
+                { value: "nothing", label: "Do nothing" },
+              ],
+              tooltip:
+                "What to do after a call is no longer detected (about 20 seconds after you leave - muting or turning the camera off won't trigger it).",
+            },
+            {
+              key: "meeting_break_fullscreen",
+              kind: "toggle",
+              label: "Fullscreen the post-meeting break",
+              visibleWhen: (s) => s.meeting_end_action === "break",
+              tooltip:
+                "When a meeting ends and a short break starts, expand the overlay to fullscreen for the break.",
+            },
           ],
         },
         {
