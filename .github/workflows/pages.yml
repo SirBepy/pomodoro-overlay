@@ -1,0 +1,56 @@
+name: Deploy Companion PWA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pwa/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Allow GITHUB_TOKEN to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; don't cancel an in-flight publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject VAPID public key
+        shell: bash
+        run: |
+          if [ -z "${{ vars.VAPID_PUBLIC_KEY }}" ]; then
+            echo "::error::Repo variable VAPID_PUBLIC_KEY is not set. Add it in Settings > Secrets and variables > Actions > Variables (it is the app's public key, safe to expose)."
+            exit 1
+          fi
+          sed -i "s|__VAPID_PUBLIC_KEY__|${{ vars.VAPID_PUBLIC_KEY }}|g" pwa/app.js
+          if grep -q "__VAPID_PUBLIC_KEY__" pwa/app.js; then
+            echo "::error::placeholder still present after substitution"
+            exit 1
+          fi
+          echo "VAPID public key injected."
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload PWA artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pwa
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
