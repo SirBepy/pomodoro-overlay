@@ -6,11 +6,11 @@ mod state;
 mod stats;
 
 use ipc::commands::{
-    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
-    is_cursor_over_window, is_modifier_held, media_pause_if_playing, media_resume,
-    open_settings_window, pick_sound_file, quit_app, save_settings, save_window_size,
-    set_click_through, set_tray_running, set_window_fullscreen, set_window_position,
-    set_window_size, show_main_window, start_resize,
+    disable_keep_awake, enable_keep_awake, get_corner_position, get_pairing_status, get_settings,
+    get_vapid_public_key, is_cursor_over_window, is_modifier_held, media_pause_if_playing,
+    media_resume, open_settings_window, pair_phone, pick_sound_file, push_state, quit_app,
+    save_settings, save_window_size, send_test_push, set_click_through, set_tray_running,
+    set_window_fullscreen, set_window_position, set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
 use ipc::stats::{
@@ -321,6 +321,11 @@ pub fn run() {
             get_stats_range,
             reset_stats,
             heartbeat_stats,
+            get_vapid_public_key,
+            get_pairing_status,
+            pair_phone,
+            push_state,
+            send_test_push,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -1,7 +1,11 @@
+use crate::push::{self, PushPayload, SendOutcome};
 use crate::settings::{self, Settings, SettingsState};
 use crate::state::{PausedSessionsState, TrayPlayPauseItem};
 use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
-use tauri::{image::Image, AppHandle, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    image::Image, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl,
+    WebviewWindowBuilder,
+};
 
 #[tauri::command]
 pub fn get_settings(state: State<SettingsState>) -> Settings {
@@ -444,5 +448,111 @@ pub async fn media_resume(state: State<'_, PausedSessionsState>) -> Result<(), S
     }
     #[cfg(not(target_os = "windows"))]
     let _ = state;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_vapid_public_key(state: State<SettingsState>) -> String {
+    state.0.lock().unwrap().vapid_public_key.clone()
+}
+
+#[tauri::command]
+pub fn get_pairing_status(state: State<SettingsState>) -> bool {
+    state.0.lock().unwrap().push_subscription.is_some()
+}
+
+#[tauri::command]
+pub fn pair_phone(
+    app: AppHandle,
+    state: State<'_, SettingsState>,
+    code: String,
+) -> Result<(), String> {
+    // Validate before storing.
+    push::parse_subscription(&code)?;
+    let settings = {
+        let mut s = state.0.lock().unwrap();
+        s.push_subscription = Some(code);
+        s.clone()
+    };
+    crate::settings::persist(&app, &settings)?;
+    log::info!("phone paired");
+    Ok(())
+}
+
+/// Build the per-send inputs (private key + subscription) if push is enabled and paired.
+fn push_inputs(state: &State<SettingsState>, payload: &PushPayload) -> Option<(String, String)> {
+    let s = state.0.lock().unwrap();
+    if !s.phone_notify_enabled {
+        return None;
+    }
+    // Per-phase gating applies only to phase-end events.
+    if payload.event == "phase-end" {
+        let allowed = match payload.ended_phase.as_deref() {
+            Some("work") => s.notify_on_work_end,
+            Some("short") => s.notify_on_short_end,
+            Some("long") => s.notify_on_long_end,
+            _ => true,
+        };
+        if !allowed {
+            return None;
+        }
+    }
+    let sub = s.push_subscription.clone()?;
+    if s.vapid_private_key.is_empty() {
+        return None;
+    }
+    Some((s.vapid_private_key.clone(), sub))
+}
+
+// VAPID `sub` contact claim sent to the push service. Non-personal on purpose.
+const VAPID_CONTACT: &str = "mailto:pomodoro-overlay@users.noreply.github.com";
+
+async fn do_send(app: AppHandle, pem: String, sub: String, payload: PushPayload) {
+    match push::send_push(&pem, &sub, &payload, VAPID_CONTACT).await {
+        SendOutcome::Sent => {}
+        SendOutcome::SubscriptionGone => {
+            log::warn!("push subscription gone; clearing + prompting re-pair");
+            if let Some(state) = app.try_state::<SettingsState>() {
+                let settings = {
+                    let mut s = state.0.lock().unwrap();
+                    s.push_subscription = None;
+                    s.clone()
+                };
+                let _ = crate::settings::persist(&app, &settings);
+            }
+            let _ = app.emit("push-subscription-gone", ());
+        }
+        SendOutcome::Failed(e) => log::warn!("push send failed (ignored): {e}"),
+    }
+}
+
+#[tauri::command]
+pub fn push_state(app: AppHandle, state: State<SettingsState>, payload: PushPayload) {
+    if let Some((pem, sub)) = push_inputs(&state, &payload) {
+        tauri::async_runtime::spawn(do_send(app, pem, sub, payload));
+    }
+}
+
+#[tauri::command]
+pub fn send_test_push(app: AppHandle, state: State<SettingsState>) -> Result<(), String> {
+    let (pem, sub) = {
+        let s = state.0.lock().unwrap();
+        let sub = s.push_subscription.clone().ok_or("phone not paired")?;
+        if s.vapid_private_key.is_empty() {
+            return Err("no VAPID key".into());
+        }
+        (s.vapid_private_key.clone(), sub)
+    };
+    let payload = PushPayload {
+        phase: "other".into(),
+        running: false,
+        eta_epoch_ms: 0,
+        remaining_sec: 0,
+        event: "test".into(),
+        ended_phase: None,
+        updated_at_ms: 0,
+        work_sessions_completed: 0,
+    };
+    tauri::async_runtime::spawn(do_send(app, pem, sub, payload));
     Ok(())
 }
