@@ -1,0 +1,87 @@
+.phone-pairing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-pairing-controls,
+.phone-pairing-statusgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-pairing-input {
+  width: 160px;
+}
+
+.phone-pairing-status {
+  font-size: 11px;
+  color: var(--kit-text-dim);
+  background: var(--kit-bg-alt);
+  border: 1px solid var(--kit-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  min-width: 80px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.phone-pairing-status--paired {
+  color: var(--kit-accent);
+  border-color: var(--kit-accent);
+}
+
+/* Transient toast: hidden until a class is toggled on. */
+.phone-pairing-toast {
+  font-size: 11px;
+  color: var(--kit-text-dim);
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease;
+  padding: 0 2px;
+}
+
+.phone-pairing-toast--visible {
+  opacity: 1;
+  max-height: 40px;
+  padding: 4px 2px 0;
+}
+
+.phone-pairing-toast--error {
+  color: var(--kit-danger);
+}
+
+/* Re-pair banner: hidden until the push-subscription-gone event reveals it. */
+.phone-pairing-banner {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--kit-danger);
+  background: var(--kit-danger-bg);
+  border: 1px solid var(--kit-danger-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+}
+
+.phone-pairing-banner--visible {
+  display: flex;
+}
+
+.phone-pairing-banner-text {
+  flex: 1;
+}
+
+.phone-pairing-banner-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  font-size: 14px;
+}

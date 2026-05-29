@@ -1,6 +1,7 @@
 import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
 import { keybindField } from "./keybind-field";
 import { clearStatsField } from "./clear-stats-field";
+import { phonePairingField } from "./phone-pairing-field";
 
 export const settingsSchema = defineSchema({
   sections: [
@@ -318,6 +319,7 @@ export const settingsSchema = defineSchema({
               label: "Notify on long break end",
               visibleWhen: (s) => s.phone_notify_enabled === true,
             },
+            phonePairingField({ key: "phone_pairing", label: "Pairing code" }),
           ],
         },
       ],
