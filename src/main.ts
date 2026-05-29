@@ -276,7 +276,7 @@ async function handlePhaseEnd(natural = false) {
     const next = fsState.pendingBreakPhase ?? PHASE_SHORT;
     fsState.pendingBreakPhase = null;
     setPhaseInternal(next);
-    pushState("phase-end", ended);
+    pushState(natural ? "phase-end" : "skip", ended);
     invoke("show_main_window").catch(() => {});
     await enterOverlayFullscreen();
     renderSnoozeButton();
@@ -287,7 +287,7 @@ async function handlePhaseEnd(natural = false) {
   if (ended === PHASE_OTHER) {
     // Stopwatch ended manually (skip). Just return to work; do not auto-start.
     setPhaseInternal(PHASE_WORK);
-    pushState("phase-end", ended);
+    pushState(natural ? "phase-end" : "skip", ended);
     return;
   }
 
@@ -301,7 +301,7 @@ async function handlePhaseEnd(natural = false) {
     next = PHASE_WORK;
   }
   setPhaseInternal(next);
-  pushState("phase-end", ended);
+  pushState(natural ? "phase-end" : "skip", ended);
   invoke("show_main_window").catch(() => {});
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingPolicy?.active) {

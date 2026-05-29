@@ -93,7 +93,7 @@ impl Default for Settings {
             keybind_meeting_toggle: None,
             meeting_end_action: "break".to_string(),
             meeting_break_fullscreen: true,
-            phone_notify_enabled: false,
+            phone_notify_enabled: true,
             notify_on_work_end: true,
             notify_on_short_end: true,
             notify_on_long_end: true,

@@ -291,15 +291,21 @@ export const settingsSchema = defineSchema({
             },
           ],
         },
+      ],
+    },
+    {
+      title: "Phone",
+      groups: [
         {
-          title: "Phone notifications",
+          title: "Companion",
           fields: [
+            phonePairingField({ key: "phone_pairing", label: "Pairing code" }),
             {
               key: "phone_notify_enabled",
               kind: "toggle",
               label: "Notify my phone",
               tooltip:
-                "Send a push to your paired Android phone when a phase ends. Requires pairing below.",
+                "Send a push to your paired phone when a phase ends naturally (skips stay silent).",
             },
             {
               key: "notify_on_work_end",
@@ -319,7 +325,6 @@ export const settingsSchema = defineSchema({
               label: "Notify on long break end",
               visibleWhen: (s) => s.phone_notify_enabled === true,
             },
-            phonePairingField({ key: "phone_pairing", label: "Pairing code" }),
           ],
         },
       ],
