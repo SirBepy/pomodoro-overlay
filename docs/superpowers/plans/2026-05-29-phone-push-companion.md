@@ -6,11 +6,13 @@
 
 **Architecture:** The desktop app (Tauri/Rust) is the sender. The phone PWA subscribes to Web Push and sends its subscription to the PC once (one-time copy-paste pairing). On every timer state change the frontend invokes a Rust `push_state` command, which signs a VAPID JWT, encrypts a JSON payload, and POSTs it outbound to the phone's push endpoint (Google FCM). The PC never listens for inbound connections. The PWA renders a local countdown from the last pushed `etaEpochMs`.
 
-**Tech Stack:** Tauri 2.11 + Rust, lit-html/vite frontend, `web-push 0.11` (hyper-client) + `openssl 0.10.72` (vendored) + `base64 0.22` on the Rust side, a static PWA (HTML + service worker) hosted on GitHub Pages.
+**Tech Stack:** Tauri 2.11 + Rust, lit-html/vite frontend. Rust push stack is **pure-Rust, no OpenSSL/Perl**: `web-push-native 0.4` (RFC8291 encryption, RustCrypto) + `jwt-simple 0.12` (pure-rust, ES256 VAPID) + `p256 0.13` (keygen) + `reqwest 0.12` (rustls-tls, the HTTPS POST) + `base64 0.22`. A static PWA (HTML + service worker) hosted on GitHub Pages.
 
 **Spec:** `docs/superpowers/specs/2026-05-29-phone-push-companion-design.md`
 
-**API note:** All `web-push` code below targets **v0.11.0**. If a signature differs at implementation time, consult <https://docs.rs/web-push/0.11.0>. Where the exact `WebPushError` variant names matter, verify against that doc.
+**Why pure-Rust (not the `web-push` crate):** `web-push 0.11` depends on `ece`, which has only an OpenSSL backend; vendored OpenSSL needs Perl at build time (confirmed build failure on the dev machine) and carries recurring CVEs. The pure-Rust stack above avoids OpenSSL entirely, builds clean on Windows/CI with no extra toolchain, and was RustSec-cleared at the pinned versions.
+
+**API note:** `web-push-native 0.4.0` returns an `http::Request<Vec<u8>>` you translate into a `reqwest` request (Task 3). Consult <https://docs.rs/web-push-native/0.4.0> if a signature differs. The trickiest integration point is matching the `http` crate major version that `web-push-native` re-exports (verify with `cargo tree -i http`).
 
 ---
 
@@ -75,18 +77,26 @@
 
 - [ ] **Step 1: Add dependencies to `Cargo.toml`**
 
-In `[dependencies]` of `src-tauri/Cargo.toml`, add:
+In `[dependencies]` of `src-tauri/Cargo.toml`, add (pure-Rust, OpenSSL-free, pinned to RustSec-clear versions):
 
 ```toml
-web-push = { version = "0.11", default-features = false, features = ["hyper-client"] }
-openssl = { version = "0.10.72", features = ["vendored"] }
+web-push-native = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+p256 = { version = "0.13", features = ["pem", "pkcs8"] }
+jwt-simple = { version = "0.12", default-features = false, features = ["pure-rust"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
 base64 = "0.22"
 ```
 
-- [ ] **Step 2: Verify the dependency tree builds**
+`default-features = false` on `reqwest` is REQUIRED — it strips the native-tls/OpenSSL path so only rustls is linked. `pure-rust` on `jwt-simple` is REQUIRED — its defaults can pull an OpenSSL-ish backend.
+
+- [ ] **Step 2: Verify the dependency tree builds AND is OpenSSL-free**
 
 Run: `cargo build --manifest-path src-tauri/Cargo.toml`
-Expected: compiles (vendored OpenSSL builds from source on first run — may take a few minutes). If OpenSSL fails to build on Windows, confirm Perl + NASM are on PATH (vendored openssl-src needs them); this is the exact risk the CI gate in Task 9 guards.
+Expected: compiles with NO Perl/OpenSSL (first build pulls rustls/ring — a minute or two, no system toolchain needed).
+Then run: `cargo tree -i openssl-sys --manifest-path src-tauri/Cargo.toml`
+Expected: prints "package ID specification ... did not match any packages" (i.e. openssl-sys is NOT in the tree). If openssl-sys IS present, a default feature leaked it in — fix the `reqwest`/`jwt-simple` feature flags before continuing.
+Then run: `cargo tree -i http --manifest-path src-tauri/Cargo.toml` and note the `http` major version `web-push-native` uses; Task 3 must convert its `http::Request` into reqwest using a matching `http` major.
 
 - [ ] **Step 3: Add fields to the `Settings` struct**
 
@@ -225,13 +235,16 @@ mod push;
 Create `src-tauri/src/push/vapid.rs` with only the test (function not yet defined):
 
 ```rust
-use openssl::ec::{EcGroup, EcKey, PointConversionForm};
-use openssl::bn::BigNumContext;
-use openssl::nid::Nid;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use p256::elliptic_curve::sec1::ToEncodedPoint;
+use p256::pkcs8::EncodePrivateKey;
+use p256::SecretKey;
+use rand_core::OsRng;
 
 /// Generates a VAPID P-256 keypair.
-/// Returns (private_key_pem, public_key_base64url_uncompressed).
+/// Returns (private_key_pkcs8_pem, public_key_base64url_uncompressed).
+/// The PEM is consumed later by jwt_simple::ES256KeyPair::from_pem; the base64url
+/// public key is the PWA's `applicationServerKey`.
 pub fn generate_vapid_keypair() -> Result<(String, String), String> {
     todo!()
 }
@@ -239,15 +252,18 @@ pub fn generate_vapid_keypair() -> Result<(String, String), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jwt_simple::algorithms::ES256KeyPair;
 
     #[test]
     fn generates_valid_keypair() {
         let (pem, pub_b64) = generate_vapid_keypair().unwrap();
         assert!(pem.contains("PRIVATE KEY"));
-        // base64url uncompressed P-256 point = 65 bytes
+        // base64url uncompressed P-256 point = 65 bytes, leading 0x04.
         let raw = URL_SAFE_NO_PAD.decode(pub_b64).unwrap();
         assert_eq!(raw.len(), 65);
-        assert_eq!(raw[0], 0x04); // uncompressed point marker
+        assert_eq!(raw[0], 0x04);
+        // The PEM must be loadable by the same library that will sign VAPID JWTs.
+        ES256KeyPair::from_pem(&pem).expect("jwt-simple must accept our PKCS8 PEM");
     }
 }
 ```
@@ -263,20 +279,19 @@ Replace the `todo!()` body:
 
 ```rust
 pub fn generate_vapid_keypair() -> Result<(String, String), String> {
-    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).map_err(|e| e.to_string())?;
-    let key = EcKey::generate(&group).map_err(|e| e.to_string())?;
+    // Generate a P-256 secret key with the OS CSPRNG.
+    let secret = SecretKey::random(&mut OsRng);
 
-    // Private key as SEC1 PEM ("EC PRIVATE KEY"), which web-push's VapidSignatureBuilder::from_pem reads.
-    let pem_bytes = key.private_key_to_pem().map_err(|e| e.to_string())?;
-    let pem = String::from_utf8(pem_bytes).map_err(|e| e.to_string())?;
+    // Private key as PKCS#8 PEM ("PRIVATE KEY"); jwt-simple's ES256KeyPair::from_pem reads it.
+    let pem = secret
+        .to_pkcs8_pem(p256::pkcs8::LineEnding::LF)
+        .map_err(|e| e.to_string())?
+        .to_string();
 
-    // Public key as uncompressed point, base64url no-pad (applicationServerKey format).
-    let mut ctx = BigNumContext::new().map_err(|e| e.to_string())?;
-    let point_bytes = key
-        .public_key()
-        .to_bytes(&group, PointConversionForm::UNCOMPRESSED, &mut ctx)
-        .map_err(|e| e.to_string())?;
-    let pub_b64 = URL_SAFE_NO_PAD.encode(point_bytes);
+    // Public key as uncompressed SEC1 point (65 bytes, 0x04-prefixed), base64url no-pad
+    // — the format the browser expects for applicationServerKey.
+    let point = secret.public_key().to_encoded_point(false);
+    let pub_b64 = URL_SAFE_NO_PAD.encode(point.as_bytes());
 
     Ok((pem, pub_b64))
 }
@@ -335,12 +350,11 @@ Replace `src-tauri/src/push/mod.rs` with:
 ```rust
 pub mod vapid;
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD}, Engine as _};
+use jwt_simple::algorithms::ES256KeyPair;
+use p256::PublicKey;
 use serde::{Deserialize, Serialize};
-use web_push::{
-    ContentEncoding, HyperWebPushClient, SubscriptionInfo, VapidSignatureBuilder,
-    WebPushClient, WebPushError, WebPushMessageBuilder,
-};
+use web_push_native::{Auth, WebPushBuilder};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PushPayload {
@@ -367,8 +381,16 @@ pub enum SendOutcome {
     Failed(String),   // transient/other — swallow, keep timer running
 }
 
-/// Parse the base64 pairing code (base64 of {endpoint,keys:{p256dh,auth}}) into SubscriptionInfo.
-pub fn parse_subscription(code: &str) -> Result<SubscriptionInfo, String> {
+/// The three values a browser PushSubscription carries.
+#[derive(Debug, Deserialize)]
+pub struct Subscription {
+    pub endpoint: String,
+    pub p256dh: String, // base64url
+    pub auth: String,   // base64url
+}
+
+/// Parse the base64 (standard) pairing code of `{endpoint, keys:{p256dh, auth}}`.
+pub fn parse_subscription(code: &str) -> Result<Subscription, String> {
     #[derive(Deserialize)]
     struct Keys { p256dh: String, auth: String }
     #[derive(Deserialize)]
@@ -376,35 +398,40 @@ pub fn parse_subscription(code: &str) -> Result<SubscriptionInfo, String> {
 
     let bytes = STANDARD.decode(code.trim()).map_err(|e| format!("bad pairing code base64: {e}"))?;
     let sub: Sub = serde_json::from_slice(&bytes).map_err(|e| format!("bad pairing code json: {e}"))?;
-    Ok(SubscriptionInfo::new(sub.endpoint, sub.keys.p256dh, sub.keys.auth))
+    Ok(Subscription { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth })
 }
 
-/// Classify a WebPushError into a SendOutcome.
-fn classify(err: WebPushError) -> SendOutcome {
-    match err {
-        // 404 / 410 from the push service: subscription no longer valid.
-        WebPushError::EndpointNotFound | WebPushError::EndpointNotValid => SendOutcome::SubscriptionGone,
-        other => SendOutcome::Failed(other.to_string()),
-    }
-}
-
-/// Send a push. Async; callers spawn this so it never blocks the UI.
+/// Send a push. Async (uses reqwest); callers spawn this so it never blocks the UI.
+/// `contact` must be a `mailto:` or `https:` URL (VAPID `sub` claim).
 pub async fn send_push(
     vapid_private_pem: &str,
     subscription_code: &str,
     payload: &PushPayload,
+    contact: &str,
 ) -> SendOutcome {
     let sub = match parse_subscription(subscription_code) {
         Ok(s) => s,
         Err(e) => return SendOutcome::Failed(e),
     };
 
-    let sig = match VapidSignatureBuilder::from_pem(vapid_private_pem.as_bytes(), &sub) {
-        Ok(b) => match b.build() {
-            Ok(s) => s,
-            Err(e) => return SendOutcome::Failed(e.to_string()),
-        },
-        Err(e) => return SendOutcome::Failed(e.to_string()),
+    // Decode subscription keys into the RustCrypto types web-push-native expects.
+    let ua_public = match URL_SAFE_NO_PAD
+        .decode(sub.p256dh.trim_end_matches('='))
+        .map_err(|e| e.to_string())
+        .and_then(|b| PublicKey::from_sec1_bytes(&b).map_err(|e| e.to_string()))
+    {
+        Ok(k) => k,
+        Err(e) => return SendOutcome::Failed(format!("bad p256dh: {e}")),
+    };
+    let auth_bytes = match URL_SAFE_NO_PAD.decode(sub.auth.trim_end_matches('=')) {
+        Ok(b) => b,
+        Err(e) => return SendOutcome::Failed(format!("bad auth: {e}")),
+    };
+    let ua_auth = Auth::clone_from_slice(&auth_bytes);
+
+    let vapid_kp = match ES256KeyPair::from_pem(vapid_private_pem) {
+        Ok(k) => k,
+        Err(e) => return SendOutcome::Failed(format!("bad vapid key: {e}")),
     };
 
     let body = match serde_json::to_vec(payload) {
@@ -412,21 +439,46 @@ pub async fn send_push(
         Err(e) => return SendOutcome::Failed(e.to_string()),
     };
 
-    let mut builder = WebPushMessageBuilder::new(&sub);
-    builder.set_payload(ContentEncoding::Aes128Gcm, &body);
-    builder.set_vapid_signature(sig);
-    // Urgency: high so Android Doze doesn't defer the notification.
-    builder.set_urgency(web_push::Urgency::High);
-
-    let message = match builder.build() {
-        Ok(m) => m,
-        Err(e) => return SendOutcome::Failed(e.to_string()),
+    let endpoint_uri = match sub.endpoint.parse() {
+        Ok(u) => u,
+        Err(e) => return SendOutcome::Failed(format!("bad endpoint: {e}")),
     };
 
-    let client = HyperWebPushClient::new();
-    match client.send(message).await {
-        Ok(()) => SendOutcome::Sent,
-        Err(e) => classify(e),
+    // Build the encrypted (aes128gcm), VAPID-signed request. build() does ECDH+HKDF+AES-GCM.
+    let request = match WebPushBuilder::new(endpoint_uri, ua_public, ua_auth)
+        .with_vapid(&vapid_kp, contact)
+        .build(body)
+    {
+        Ok(r) => r,
+        Err(e) => return SendOutcome::Failed(format!("build push: {e}")),
+    };
+
+    // Translate http::Request -> reqwest and POST. Web Push is always POST.
+    let (parts, body) = request.into_parts();
+    let client = reqwest::Client::new();
+    let mut rb = client.post(parts.uri.to_string());
+    for (name, value) in parts.headers.iter() {
+        rb = rb.header(name.as_str(), value.as_bytes());
+    }
+    // Reliability: high urgency so Android Doze doesn't defer; TTL so the service holds it briefly.
+    // (Only add these if web-push-native didn't already set them — see Step 2 note.)
+    rb = rb.header("Urgency", "high");
+    if !parts.headers.contains_key("ttl") {
+        rb = rb.header("TTL", "60");
+    }
+
+    match rb.body(body).send().await {
+        Ok(resp) => {
+            let code = resp.status().as_u16();
+            if resp.status().is_success() {
+                SendOutcome::Sent
+            } else if code == 404 || code == 410 {
+                SendOutcome::SubscriptionGone
+            } else {
+                SendOutcome::Failed(format!("push endpoint returned {code}"))
+            }
+        }
+        Err(e) => SendOutcome::Failed(e.to_string()),
     }
 }
 
@@ -440,6 +492,7 @@ mod tests {
         let code = STANDARD.encode(json);
         let sub = parse_subscription(&code).unwrap();
         assert_eq!(sub.endpoint, "https://fcm.googleapis.com/x");
+        assert_eq!(sub.p256dh, "BPK");
     }
 
     #[test]
@@ -464,7 +517,11 @@ mod tests {
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml push::tests`
 Expected: 3 tests PASS.
-**If** `WebPushError::EndpointNotFound` / `EndpointNotValid` / `Urgency` / `set_urgency` names don't match v0.11, fix per <https://docs.rs/web-push/0.11.0> (the `classify`/urgency lines are the only likely deltas) and re-run.
+**Likely API deltas to verify against <https://docs.rs/web-push-native/0.4.0> while implementing** (these are integration points, not placeholders — fix to the real signature if they differ):
+- `Auth::clone_from_slice` — `Auth` is a `GenericArray<u8, U16>` alias; the constructor may be `Auth::clone_from_slice`, `Auth::from_slice(..).to_owned()`, or `*Auth::from_slice(..)`. The 16-byte `auth` value drives it.
+- `WebPushBuilder::new(uri, ua_public, ua_auth)` argument order/types and `.with_vapid(&kp, contact)`.
+- Whether `build()` already sets `TTL`/`Urgency` headers (the code above adds `Urgency` always and `TTL` only if absent; if it sets `Urgency` too, dedupe).
+- The `http::Uri` type from `sub.endpoint.parse()` must be the `http` major that `web-push-native` uses (from Task 1 Step 2's `cargo tree -i http`). If they mismatch, align the `http` dep.
 
 - [ ] **Step 3: Commit**
 
@@ -541,8 +598,11 @@ fn push_inputs(state: &State<SettingsState>, payload: &PushPayload) -> Option<(S
     Some((s.vapid_private_key.clone(), sub))
 }
 
+// VAPID `sub` contact claim sent to the push service. Non-personal on purpose.
+const VAPID_CONTACT: &str = "mailto:pomodoro-overlay@users.noreply.github.com";
+
 async fn do_send(app: AppHandle, pem: String, sub: String, payload: PushPayload) {
-    match push::send_push(&pem, &sub, &payload).await {
+    match push::send_push(&pem, &sub, &payload, VAPID_CONTACT).await {
         SendOutcome::Sent => {}
         SendOutcome::SubscriptionGone => {
             log::warn!("push subscription gone; clearing + prompting re-pair");
@@ -1028,16 +1088,24 @@ Stage the Pages files / config. Commit via `/commit`. Suggested: `CHORE: deploy 
 In `.github/workflows/release.yml`, between "Install Tauri CLI" and "Build" (around line 94-99), add:
 
 ```yaml
-      - name: Verify web-push crate compiles (crypto-dep gate)
+      - name: Verify push crypto stack compiles (dep gate)
         working-directory: src-tauri
         run: cargo check --locked
 ```
 
-This fails the release early if the `web-push` / vendored-`openssl` toolchain regresses on the Windows runner, before the long `cargo tauri build`.
+This fails the release early if the pure-Rust push stack (`web-push-native` / `rustls` / `p256`) regresses, before the long `cargo tauri build`.
 
-- [ ] **Step 2: Confirm the runner has OpenSSL build prereqs**
+- [ ] **Step 2: Confirm the build stays OpenSSL-free**
 
-Vendored OpenSSL needs Perl + NASM on the runner. The GitHub `windows-latest` image ships Strawberry Perl and NASM, so no extra install is normally required. If the gate fails on missing NASM/Perl, add a setup step (`choco install nasm` / ensure Perl on PATH) before the gate.
+The pure-Rust stack needs NO extra toolchain (no Perl/NASM/OpenSSL) on the runner. Add an assertion step after the gate so an accidental OpenSSL-pulling dependency can't slip into a release:
+
+```yaml
+      - name: Assert no OpenSSL in dependency tree
+        working-directory: src-tauri
+        run: cargo tree -i openssl-sys ; if ($LASTEXITCODE -eq 0) { echo "openssl-sys leaked into the tree"; exit 1 } else { exit 0 }
+```
+
+(`cargo tree -i` exits non-zero when the package is absent, which is the success case here. Adjust the shell guard to the runner's shell — the release job runs on Windows/pwsh.)
 
 - [ ] **Step 3: Verify YAML**
 
@@ -1070,5 +1138,5 @@ These steps require Joe's physical phone and the running desktop app; they canno
 ## Self-review notes
 
 - **Spec coverage:** notifications (Tasks 3-5,7), live view (Tasks 5,7), $0/no-inbound (architecture; Task 3-4 outbound-only), Android-only (no iOS code), one-time pairing (Tasks 4,6,7), high-urgency (Task 3), 410 re-pair (Tasks 4,6,7), test push (Tasks 4,6), CI gate (Task 9), secrets never in repo (Tasks 2,8 guard), settings persist in both schema + struct (Task 1) — all mapped.
-- **Known accuracy risks to verify at execution time:** exact `web-push 0.11` API names for `WebPushError` variants and `set_urgency`/`Urgency` (Task 3 Step 2); the SEC1-vs-PKCS8 PEM format accepted by `VapidSignatureBuilder::from_pem` (Task 2 — if `from_pem` rejects SEC1, switch to `private_key_to_pem_pkcs8`); the settings renderer's extensibility for the custom pairing UI (Task 6 Step 1).
+- **Known accuracy risks to verify at execution time:** `web-push-native 0.4` API names — `Auth` construction, `WebPushBuilder::new`/`with_vapid`/`build` signatures, and whether `build()` already sets `TTL`/`Urgency` (Task 3 Step 2); the `http` crate major must match between `web-push-native` and the `sub.endpoint.parse()` `Uri` (Task 1 Step 2 + Task 3); that `jwt-simple::ES256KeyPair::from_pem` accepts the `p256` PKCS#8 PEM (Task 2 has a test asserting exactly this); the settings renderer's extensibility for the custom pairing UI (Task 6 Step 1).
 - **Untestable-by-Claude:** all real push delivery + PWA-on-phone behavior (Task 10) — gated to manual QA, never claimed from a build pass.
