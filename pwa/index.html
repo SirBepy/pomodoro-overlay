@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pomodoro Companion</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1e1e1e" />
+  <style>
+    body { margin:0; font-family: system-ui, sans-serif; background:#1e1e1e; color:#eee; text-align:center; }
+    main { max-width:480px; margin:0 auto; padding:24px; }
+    .phase { font-size:1.2rem; text-transform:capitalize; opacity:0.8; }
+    .count { font-size:4rem; font-variant-numeric:tabular-nums; margin:8px 0; }
+    .eta, .stale { opacity:0.6; font-size:0.9rem; }
+    button { font-size:1rem; padding:12px 20px; border-radius:10px; border:0; margin:8px; cursor:pointer; }
+    #code { width:100%; word-break:break-all; background:#2a2a2a; padding:12px; border-radius:8px; user-select:all; font-size:0.75rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="live" hidden>
+      <div class="phase" id="phase">-</div>
+      <div class="count" id="count">--:--</div>
+      <div class="eta" id="eta"></div>
+      <div class="stale" id="stale"></div>
+    </div>
+    <button id="enable">Enable notifications</button>
+    <div id="pairing" hidden>
+      <p>Paste this code into the desktop app: Settings &rarr; Pair phone:</p>
+      <div id="code"></div>
+      <button id="copy">Copy code</button>
+    </div>
+    <p id="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
