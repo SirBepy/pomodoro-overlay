@@ -42,6 +42,13 @@ pub struct Settings {
     pub keybind_meeting_toggle: Option<String>,
     pub meeting_end_action: String,
     pub meeting_break_fullscreen: bool,
+    pub phone_notify_enabled: bool,
+    pub notify_on_work_end: bool,
+    pub notify_on_short_end: bool,
+    pub notify_on_long_end: bool,
+    pub push_subscription: Option<String>, // base64 of {endpoint,keys}; secret, local only
+    pub vapid_private_key: String,         // PEM; secret, local only; generated first run
+    pub vapid_public_key: String,          // base64url uncompressed point; for PWA/QR
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -86,6 +93,13 @@ impl Default for Settings {
             keybind_meeting_toggle: None,
             meeting_end_action: "break".to_string(),
             meeting_break_fullscreen: true,
+            phone_notify_enabled: false,
+            notify_on_work_end: true,
+            notify_on_short_end: true,
+            notify_on_long_end: true,
+            push_subscription: None,
+            vapid_private_key: String::new(),
+            vapid_public_key: String::new(),
             kit: KitSettings::default(),
         }
     }
@@ -132,4 +146,30 @@ pub fn persist(app: &AppHandle, settings: &Settings) -> Result<(), String> {
         log::warn!("settings persist failed: {:?}", result);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_roundtrip_includes_push_fields() {
+        let mut s = Settings::default();
+        s.phone_notify_enabled = true;
+        s.push_subscription = Some("abc123".into());
+        s.vapid_private_key = "PEMDATA".into();
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.phone_notify_enabled, true);
+        assert_eq!(back.push_subscription.as_deref(), Some("abc123"));
+        assert_eq!(back.vapid_private_key, "PEMDATA");
+    }
+
+    #[test]
+    fn missing_push_fields_fall_back_to_default() {
+        let json = r#"{"work_minutes":25}"#;
+        let s: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(s.phone_notify_enabled, false);
+        assert!(s.push_subscription.is_none());
+    }
 }

@@ -290,6 +290,36 @@ export const settingsSchema = defineSchema({
             },
           ],
         },
+        {
+          title: "Phone notifications",
+          fields: [
+            {
+              key: "phone_notify_enabled",
+              kind: "toggle",
+              label: "Notify my phone",
+              tooltip:
+                "Send a push to your paired Android phone when a phase ends. Requires pairing below.",
+            },
+            {
+              key: "notify_on_work_end",
+              kind: "toggle",
+              label: "Notify on focus end",
+              visibleWhen: (s) => s.phone_notify_enabled === true,
+            },
+            {
+              key: "notify_on_short_end",
+              kind: "toggle",
+              label: "Notify on short break end",
+              visibleWhen: (s) => s.phone_notify_enabled === true,
+            },
+            {
+              key: "notify_on_long_end",
+              kind: "toggle",
+              label: "Notify on long break end",
+              visibleWhen: (s) => s.phone_notify_enabled === true,
+            },
+          ],
+        },
       ],
     },
     {
