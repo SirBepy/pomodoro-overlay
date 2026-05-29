@@ -60,6 +60,25 @@ const MEETING_GRACE_MS = 20000;
 
 const STATE_KEY = "pomodoro-overlay-state";
 
+// Fire-and-forget push of current timer state to the Rust backend, which decides
+// (enabled + paired + per-phase toggles) whether to forward it to the paired phone.
+// Must never block or throw into the timer path.
+function pushState(event, endedPhase) {
+  const nowMs = Date.now();
+  const etaEpochMs = running && remainingSec > 0 ? nowMs + remainingSec * 1000 : 0;
+  const payload = {
+    phase,
+    running,
+    etaEpochMs,
+    remainingSec,
+    event,
+    endedPhase,
+    updatedAtMs: nowMs,
+    workSessionsCompleted,
+  };
+  invoke("push_state", { payload }).catch((e) => console.warn("push_state failed", e));
+}
+
 function saveState() {
   if (phase === PHASE_SNOOZE) return;
   localStorage.setItem(STATE_KEY, JSON.stringify({
@@ -194,6 +213,7 @@ async function startTimer() {
   invoke("set_tray_running", { running: true }).catch(() => {});
   syncClickThrough();
   render();
+  pushState("start");
 }
 
 function pauseTimer(endedBy = "pause") {
@@ -216,6 +236,7 @@ function pauseTimer(endedBy = "pause") {
   invoke("set_tray_running", { running: false }).catch(() => {});
   syncClickThrough();
   render();
+  pushState("pause");
 }
 
 // Manually leaving the Other phase (tab click, skip button, skip keybind) means
@@ -255,6 +276,7 @@ async function handlePhaseEnd(natural = false) {
     const next = fsState.pendingBreakPhase ?? PHASE_SHORT;
     fsState.pendingBreakPhase = null;
     setPhaseInternal(next);
+    pushState("phase-end", ended);
     invoke("show_main_window").catch(() => {});
     await enterOverlayFullscreen();
     renderSnoozeButton();
@@ -265,6 +287,7 @@ async function handlePhaseEnd(natural = false) {
   if (ended === PHASE_OTHER) {
     // Stopwatch ended manually (skip). Just return to work; do not auto-start.
     setPhaseInternal(PHASE_WORK);
+    pushState("phase-end", ended);
     return;
   }
 
@@ -278,6 +301,7 @@ async function handlePhaseEnd(natural = false) {
     next = PHASE_WORK;
   }
   setPhaseInternal(next);
+  pushState("phase-end", ended);
   invoke("show_main_window").catch(() => {});
 
   if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingPolicy?.active) {
@@ -416,6 +440,11 @@ async function init() {
   });
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
+  // Push service dropped the phone subscription; settings UI will surface a re-pair
+  // banner in a later task. Wire the listener now so the event has a handler.
+  listen("push-subscription-gone", () => {
+    console.warn("phone unpaired by push service; re-pair needed");
+  });
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
