@@ -75,6 +75,13 @@ export const settingsSchema = defineSchema({
               tooltip:
                 "When paused, click the time digits to manually adjust them. Off = read-only.",
             },
+            {
+              key: "reset_on_restart",
+              kind: "toggle",
+              label: "Reset session progress on launch",
+              tooltip:
+                "When on, every app launch starts at session 1. When off, your previous unfinished session resumes.",
+            },
           ],
         },
       ],
@@ -390,12 +397,5 @@ export const systemInline = [
     kind: "toggle" as const,
     label: "Launch at startup",
     tooltip: "Run the overlay automatically when Windows starts.",
-  },
-  {
-    key: "reset_on_restart",
-    kind: "toggle" as const,
-    label: "Reset session progress on launch",
-    tooltip:
-      "When on, every app launch starts at session 1. When off, your previous unfinished session resumes.",
   },
 ];
