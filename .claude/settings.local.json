@@ -86,7 +86,14 @@
       "PowerShell(Start-Sleep -Seconds 15; \\(Invoke-WebRequest -Uri \"http://localhost:3001\" -UseBasicParsing -TimeoutSec 5\\).StatusCode)",
       "Bash(New-Item *)",
       "PowerShell(cargo test *)",
-      "PowerShell(cargo check *)"
+      "PowerShell(cargo check *)",
+      "PowerShell(npx --prefix \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\vendor\\\\tauri_kit\" vitest run frontend/meeting/subscribe.test.ts 2>&1)",
+      "PowerShell(npx vitest run frontend/meeting/subscribe.test.ts --root \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\vendor\\\\tauri_kit\" 2>&1)",
+      "PowerShell(& \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\vendor\\\\tauri_kit\\\\node_modules\\\\.bin\\\\vitest\" run frontend/meeting/subscribe.test.ts --root \"C:\\\\Users\\\\tecno\\\\Desktop\\\\Projects\\\\pomodoro-overlay\\\\vendor\\\\tauri_kit\" 2>&1)",
+      "Bash(node_modules/.bin/vitest run *)",
+      "PowerShell(npx vitest run --config vendor/tauri_kit/vitest.config.ts vendor/tauri_kit/frontend/settings/pages/system.test.ts)",
+      "PowerShell(npm *)",
+      "PowerShell(npx vitest run frontend/settings/pages/system.test.ts)"
     ]
   }
 }
