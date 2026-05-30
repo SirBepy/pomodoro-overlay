@@ -9,7 +9,7 @@ use ipc::commands::{
     disable_keep_awake, enable_keep_awake, get_corner_position, get_pairing_status, get_settings,
     get_vapid_public_key, is_cursor_over_window, is_modifier_held, media_pause_if_playing,
     media_resume, open_settings_window, pair_phone, pick_sound_file, push_state, quit_app,
-    save_settings, save_window_size, send_test_push, set_click_through, set_tray_running,
+    save_settings, save_window_size, send_test_push, set_click_through,
     set_window_fullscreen, set_window_position, set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
@@ -17,12 +17,12 @@ use ipc::stats::{
     append_stats_event, close_open_stats_event, get_stats_range, heartbeat_stats, reset_stats,
 };
 use settings::{Settings, SettingsState};
-use state::{DndState, PausedSessionsState, TrayPlayPauseItem};
+use state::{DndState, PausedSessionsState};
 use stats::StatsState;
 use std::sync::Mutex;
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow,
 };
@@ -108,14 +108,12 @@ pub fn toggle_main_visibility(app: &AppHandle) {
     }
 }
 
-fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
-    let play_pause = MenuItem::with_id(app, "play_pause", "Start", true, None::<&str>)?;
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let dashboard_item = MenuItem::with_id(app, "dashboard", "Dashboard", true, None::<&str>)?;
-    let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&play_pause, &dashboard_item, &sep, &quit],
+        &[&dashboard_item, &quit],
     )?;
 
     let icon: Image = match app.default_window_icon() {
@@ -131,9 +129,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "dashboard" => {
                 let _ = open_settings_window(app.clone(), Some("dashboard".into()));
-            }
-            "play_pause" => {
-                let _ = app.emit("tray-toggle-play", ());
             }
             "quit" => {
                 app.exit(0);
@@ -151,7 +146,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<MenuItem<tauri::Wry>> {
             }
         })
         .build(app)?;
-    Ok(play_pause)
+    Ok(())
 }
 
 pub fn run() {
@@ -259,11 +254,8 @@ pub fn run() {
                     }
                 }
             }
-            match build_tray(&handle) {
-                Ok(play_pause) => {
-                    handle.manage(TrayPlayPauseItem(play_pause));
-                }
-                Err(e) => eprintln!("failed to build tray: {e}"),
+            if let Err(e) = build_tray(&handle) {
+                eprintln!("failed to build tray: {e}");
             }
             #[cfg(debug_assertions)]
             {
@@ -315,7 +307,6 @@ pub fn run() {
             disable_keep_awake,
             set_click_through,
             is_modifier_held,
-            set_tray_running,
             append_stats_event,
             close_open_stats_event,
             get_stats_range,

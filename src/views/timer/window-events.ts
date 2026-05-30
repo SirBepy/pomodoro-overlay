@@ -39,10 +39,6 @@ export async function setupWindowEvents(deps: WindowEventDeps): Promise<void> {
     syncClickThrough, render, applyPhaseClass, exitEditMode, phaseDuration,
   } = deps;
 
-  await listen("tray-toggle-play", () => {
-    if (getRunning()) pause();
-    else start().catch(() => {});
-  });
   await listen("main-window-hidden", () => {
     invoke("disable_keep_awake").catch(() => {});
   });

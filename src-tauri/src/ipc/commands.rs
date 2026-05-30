@@ -1,6 +1,6 @@
 use crate::push::{self, PushPayload, SendOutcome};
 use crate::settings::{self, Settings, SettingsState};
-use crate::state::{PausedSessionsState, TrayPlayPauseItem};
+use crate::state::PausedSessionsState;
 use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
 use tauri::{
     image::Image, AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl,
@@ -345,13 +345,6 @@ pub fn is_modifier_held(modifier: String) -> bool {
     }
 }
 
-#[tauri::command]
-pub fn set_tray_running(state: State<'_, TrayPlayPauseItem>, running: bool) -> Result<(), String> {
-    state
-        .0
-        .set_text(if running { "Pause" } else { "Start" })
-        .map_err(|e| e.to_string())
-}
 
 #[tauri::command]
 pub async fn media_pause_if_playing(state: State<'_, PausedSessionsState>) -> Result<bool, String> {

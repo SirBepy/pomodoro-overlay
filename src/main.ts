@@ -210,7 +210,6 @@ async function startTimer() {
   intervalStartMs = Date.now();
   intervalStartRemainingSec = remainingSec;
   tickHandle = setInterval(tick, 1000);
-  invoke("set_tray_running", { running: true }).catch(() => {});
   syncClickThrough();
   render();
   pushState("start");
@@ -233,7 +232,6 @@ function pauseTimer(endedBy = "pause") {
   if (settings?.pause_music_on_break === "not_running_focused" && phase === PHASE_WORK && !musicPausedByApp) {
     invoke("media_pause_if_playing").then((paused) => { if (paused) musicPausedByApp = true; }).catch(() => {});
   }
-  invoke("set_tray_running", { running: false }).catch(() => {});
   syncClickThrough();
   render();
   pushState("pause");
