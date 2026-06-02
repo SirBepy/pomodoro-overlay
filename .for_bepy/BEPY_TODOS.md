@@ -17,6 +17,16 @@
 - Toggle "Hide overlay from screen share" off in settings: overlay becomes visible in shares again.
 - Edit the "Meeting apps" list in settings, relaunch, confirm a newly-added app is detected (covers a call with camera+mic off in a native app).
 
+### Visual QA - meeting mic/browser fix (logic + tests verified; confirm real-world)
+- Have Discord running but NOT in a call: meeting mode must NOT trigger (the bug). Check the log shows mic:false now.
+- Join a Discord voice call: meeting mode SHOULD trigger (via audio-render check).
+- Start a Google Meet / Zoom-web call in the browser: meeting mode SHOULD still trigger (browser holds mic).
+- Settings > Phone is unaffected; check the new "Meeting browsers" field shows the default browser list and is editable.
+
+### Visual QA - VAPID copy-key button (ai_todo 06, build verified)
+- Settings > Phone > Companion: a "VAPID public key" row with a "Copy" button appears below "Send test push".
+- Click Copy: toast "VAPID public key copied."; paste elsewhere to confirm it's the real key (matches settings.json `vapid_public_key`). Use this when re-deploying the PWA / setting the repo variable.
+
 ### Phone push companion - pair your phone (setup + deploy DONE)
 - PWA is live at https://sirbepy.github.io/pomodoro-overlay/ (Pages configured, VAPID key injected, verified).
 - On Android Chrome: open that URL, Add to Home screen, open it, tap Enable notifications, grant permission, copy the pairing code, paste into desktop Settings > Pair phone.

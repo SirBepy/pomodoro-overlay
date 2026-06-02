@@ -116,6 +116,24 @@ export function phonePairingField(
         }
       };
 
+      const onCopyKey = async (e: MouseEvent): Promise<void> => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        btn.disabled = true;
+        try {
+          const key = (await invoke("get_vapid_public_key")) as string;
+          if (!key) {
+            showToast("No key yet — launch the app once to generate it.", true);
+            return;
+          }
+          await navigator.clipboard.writeText(key);
+          showToast("VAPID public key copied.", false);
+        } catch (err) {
+          showToast(String(err), true);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
       const dismissBanner = (e: MouseEvent): void => {
         const banner = (e.currentTarget as HTMLElement).closest(
           `#${BANNER_ID}`,
@@ -171,6 +189,17 @@ export function phonePairingField(
                 class="kit-btn-secondary"
                 @click=${onTest}
               >Send test push</button>
+            </span>
+          </div>
+
+          <div class="kit-row phone-pairing-statusrow">
+            <span class="kit-row-label">VAPID public key</span>
+            <span class="phone-pairing-statusgroup">
+              <button
+                type="button"
+                class="kit-btn-secondary"
+                @click=${onCopyKey}
+              ><i class="ph ph-copy" aria-hidden="true"></i> Copy</button>
             </span>
           </div>
 
