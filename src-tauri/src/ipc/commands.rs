@@ -51,6 +51,15 @@ pub fn save_settings(
             .filter(|s| !s.is_empty())
             .collect(),
     );
+    tauri_kit_meeting::set_browsers(
+        &app,
+        settings
+            .meeting_browsers
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
+    );
     crate::hotkeys::register_hotkeys(
         &app,
         old_pause.as_deref(),

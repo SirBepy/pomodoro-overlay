@@ -182,6 +182,15 @@ pub fn run() {
                     .filter(|s| !s.is_empty())
                     .collect(),
             );
+            tauri_kit_meeting::set_browsers(
+                &handle,
+                settings
+                    .meeting_browsers
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            );
             hotkeys::register_hotkeys(
                 &handle,
                 None,
