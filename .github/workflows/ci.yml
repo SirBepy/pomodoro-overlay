@@ -1,0 +1,50 @@
+name: CI
+
+# Dependency-invariant guard. Runs on every push/PR (not just at release) so a
+# regression is caught the moment it lands, not weeks later when a tag is cut.
+# Two checks, both inherited from the old hand-rolled release.yml:
+#   1. the crate compiles, including the pure-Rust Web Push stack;
+#   2. openssl-sys never enters the dependency tree (the push stack is
+#      deliberately OpenSSL-free so the Windows build needs no Perl/OpenSSL
+#      toolchain - see the pure-Rust web-push design).
+# Runs on windows-latest with the msvc target so the `#[cfg(windows)]` code
+# (WinAPI resize, meeting detection, etc.) is actually checked.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deps:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ci-x86_64-pc-windows-msvc
+          cache-on-failure: true
+
+      - name: Verify crate compiles (incl. pure-Rust push crypto)
+        working-directory: src-tauri
+        run: cargo check --target x86_64-pc-windows-msvc
+
+      - name: Assert no OpenSSL in dependency tree
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          cargo tree -i openssl-sys
+          if ($LASTEXITCODE -eq 0) { Write-Output "openssl-sys leaked into the dependency tree"; exit 1 } else { exit 0 }

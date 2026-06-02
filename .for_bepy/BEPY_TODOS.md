@@ -1,5 +1,9 @@
 # Manual tasks for Bepy
 
+### Urgent
+- BEFORE the next release: push the `vendor/tauri_kit` submodule commit (`df15e57`, meeting mic fix) to its remote, THEN push pomodoro. The release CI checks out submodules recursively and will fail with "not our ref" if the submodule pointer references an unpushed commit.
+- On the next release (`/commit pushnbump`): confirm the NEW reusable workflow runs (Actions tab / `gh run watch`) and produces a signed installer + `latest.json`. Asset name is now `Pomodoro-Overlay_<v>_windows_x64-setup.exe` (gained a `-setup` suffix); verify an existing install still self-updates.
+
 - Review and push uncommitted changes in `~/.claude` repo: CLAUDE.md (Process Hygiene section), skills/close/rename-session.ps1 (PID-based rename), untracked skills/character-creator/. One unpushed commit already exists.
 - Manually download v0.3.15 NSIS installer from GitHub Releases. The auto-updater on installs prior to 0.3.15 fails on the `ask()` ACL bug, so it can't self-upgrade past it.
 - Verify CI release workflow triggered on v0.3.23 push (GitHub Actions, expect installer + auto-update manifest), then relaunch the app to pull the update.
