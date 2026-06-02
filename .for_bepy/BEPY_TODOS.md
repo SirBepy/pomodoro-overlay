@@ -1,7 +1,7 @@
 # Manual tasks for Bepy
 
-### Urgent
-- On the NEXT version bump (`/commit pushnbump`): the new reusable release workflow will actually build/publish (this session's push only hit the check-and-skip path since 0.3.24 was already tagged). Confirm via `gh run watch` it produces a signed installer + `latest.json`. Asset name is now `Pomodoro-Overlay_<v>_windows_x64-setup.exe` (gained a `-setup` suffix); verify an existing install still self-updates from it.
+### Visual QA - 0.3.25 self-update
+- 0.3.25 released and verified (reusable workflow built+published signed installer + correct `latest.json`). Just confirm your installed app actually auto-updates from 0.3.24 -> 0.3.25 (or grab the installer from Releases). After updating: voice mode / idle Discord should NO LONGER trigger meeting mode.
 
 - Review and push uncommitted changes in `~/.claude` repo: CLAUDE.md (Process Hygiene section), skills/close/rename-session.ps1 (PID-based rename), untracked skills/character-creator/. One unpushed commit already exists.
 - Manually download v0.3.15 NSIS installer from GitHub Releases. The auto-updater on installs prior to 0.3.15 fails on the `ask()` ACL bug, so it can't self-upgrade past it.
