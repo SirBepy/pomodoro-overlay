@@ -13,7 +13,17 @@ name: CI
 on:
   push:
     branches: [main]
+    # Doc-only changes can't affect the dependency tree, so skip the Windows run.
+    # A mixed push (code + docs) still runs; a change to this workflow runs too.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".for_bepy/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".for_bepy/**"
   workflow_dispatch:
 
 permissions:
