@@ -25,6 +25,5 @@ jobs:
   release:
     uses: SirBepy/sirbepy_tauri_kit/.github/workflows/tauri-windows-release.yml@main
     with:
-      asset-name: Pomodoro-Overlay
       tag-prefix: "tauri-v"
     secrets: inherit
