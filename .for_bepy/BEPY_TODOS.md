@@ -1,5 +1,8 @@
 # Manual tasks for Bepy
 
+### Visual QA - spam-skip fullscreen race fix
+- In `npm run tauri dev`, spam the skip button fast across several work<->break transitions: overlay must always return to the small corner window on work phases (never stay stuck fullscreen), and the saved corner size must survive a relaunch.
+
 ### Visual QA - 0.3.25 self-update
 - 0.3.25 released and verified (reusable workflow built+published signed installer + correct `latest.json`). Just confirm your installed app actually auto-updates from 0.3.24 -> 0.3.25 (or grab the installer from Releases). After updating: voice mode / idle Discord should NO LONGER trigger meeting mode.
 

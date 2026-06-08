@@ -262,7 +262,24 @@ function setPhase(p) {
   render();
 }
 
+// Serializes phase transitions. Each transition fires async fullscreen
+// enter/exit invokes; if a second skip starts while the first is mid-flight,
+// the enter/exit window ops can reorder at the OS level and leave the overlay
+// stuck fullscreen during a WORK phase (and races the size-save). Spamming skip
+// can't outrun a settled transition, so drop re-entrant calls while one runs.
+let phaseTransitionInFlight = false;
+
 async function handlePhaseEnd(natural = false) {
+  if (phaseTransitionInFlight) return;
+  phaseTransitionInFlight = true;
+  try {
+    await runPhaseEnd(natural);
+  } finally {
+    phaseTransitionInFlight = false;
+  }
+}
+
+async function runPhaseEnd(natural = false) {
   if (running) {
     await closeOpenEvent(natural ? "natural" : "skip");
   }

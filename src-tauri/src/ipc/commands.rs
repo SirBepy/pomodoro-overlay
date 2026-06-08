@@ -181,6 +181,30 @@ pub fn save_window_size(app: AppHandle, state: State<'_, SettingsState>) -> Resu
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
     let size = win.outer_size().map_err(|e| e.to_string())?;
+    // Guard: never persist a fullscreen/maximized size as the saved corner size.
+    // The frontend resize debounce that calls this can fire AFTER a rapid phase
+    // skip already cleared its `isOverlayFullscreen` flag, so a stale invocation
+    // may read the monitor-sized (break-mode) window. If the window currently
+    // spans ~the whole work area it is not a real corner size; drop the save so
+    // the small corner size survives and break mode can still return to it.
+    if let Some(monitor) = win
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| win.primary_monitor().ok().flatten())
+    {
+        let work = monitor.work_area();
+        if size.width as f64 >= work.size.width as f64 * 0.9
+            || size.height as f64 >= work.size.height as f64 * 0.9
+        {
+            log::info!(
+                "save_window_size: ignoring fullscreen-sized save {}x{}",
+                size.width,
+                size.height
+            );
+            return Ok(());
+        }
+    }
     let settings = {
         let mut s = state.0.lock().unwrap();
         s.width = size.width;
