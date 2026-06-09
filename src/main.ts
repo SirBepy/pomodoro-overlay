@@ -46,6 +46,7 @@ let settings = null;
 let phase = PHASE_WORK;
 let remainingSec = 25 * 60;
 let running = false;
+let starting = false; // synchronous re-entrancy guard across startTimer's await window
 let tickHandle = null;
 let workSessionsCompleted = 0;
 let musicPausedByApp = false;
@@ -184,46 +185,61 @@ function tick() {
 }
 
 async function startTimer() {
-  if (running) return;
-  if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
-    exitOverlayFullscreen();
-  }
-  const pmob = settings?.pause_music_on_break;
-  if (pmob === "on_break" || pmob === "not_running_focused") {
-    if (phase === PHASE_WORK && musicPausedByApp) {
-      invoke("media_resume").catch(() => {});
-      musicPausedByApp = false;
-    } else if ((phase === PHASE_SHORT || phase === PHASE_LONG) && !musicPausedByApp) {
-      const paused = await invoke("media_pause_if_playing").catch(() => false);
-      if (paused) musicPausedByApp = true;
+  // `running` flips only after the await below, so a synchronous guard on it
+  // alone lets a re-entrant call slip through the await window and create a
+  // second interval (orphaning the first - its handle is overwritten). The
+  // `starting` flag closes that window synchronously.
+  if (running || starting) return;
+  starting = true;
+  try {
+    if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
+      exitOverlayFullscreen();
     }
+    const pmob = settings?.pause_music_on_break;
+    if (pmob === "on_break" || pmob === "not_running_focused") {
+      if (phase === PHASE_WORK && musicPausedByApp) {
+        invoke("media_resume").catch(() => {});
+        musicPausedByApp = false;
+      } else if ((phase === PHASE_SHORT || phase === PHASE_LONG) && !musicPausedByApp) {
+        const paused = await invoke("media_pause_if_playing").catch(() => false);
+        if (paused) musicPausedByApp = true;
+      }
+    }
+    if (settings?.dnd_on_focus && phase === PHASE_WORK && !dndEnabledByApp) {
+      invoke("enable_dnd").catch(() => {});
+      dndEnabledByApp = true;
+    }
+    // Stats: open event. If we're resuming after a pause (same phase still set),
+    // share the existing session_id.
+    const configured = phase === PHASE_OTHER ? null : phaseDuration(phase);
+    await openEvent(phase, configured, /* resumeSession */ true);
+    running = true;
+    intervalStartMs = Date.now();
+    intervalStartRemainingSec = remainingSec;
+    // Defensive: never let two intervals coexist. Clear any stray handle before
+    // assigning the new one so an orphaned tick can't survive.
+    if (tickHandle !== null) {
+      clearInterval(tickHandle);
+      tickHandle = null;
+    }
+    tickHandle = setInterval(tick, 1000);
+    syncClickThrough();
+    render();
+    pushState("start");
+  } finally {
+    starting = false;
   }
-  if (settings?.dnd_on_focus && phase === PHASE_WORK && !dndEnabledByApp) {
-    invoke("enable_dnd").catch(() => {});
-    dndEnabledByApp = true;
-  }
-  // Stats: open event. If we're resuming after a pause (same phase still set),
-  // share the existing session_id.
-  const configured = phase === PHASE_OTHER ? null : phaseDuration(phase);
-  await openEvent(phase, configured, /* resumeSession */ true);
-  running = true;
-  intervalStartMs = Date.now();
-  intervalStartRemainingSec = remainingSec;
-  tickHandle = setInterval(tick, 1000);
-  syncClickThrough();
-  render();
-  pushState("start");
 }
 
 function pauseTimer(endedBy = "pause") {
-  if (!running) {
-    if (tickHandle) clearInterval(tickHandle);
+  // Always kill any live interval first, regardless of `running` - this is the
+  // single chokepoint that guarantees no tick survives a pause.
+  if (tickHandle !== null) {
+    clearInterval(tickHandle);
     tickHandle = null;
-    return;
   }
+  if (!running) return;
   running = false;
-  if (tickHandle) clearInterval(tickHandle);
-  tickHandle = null;
   closeOpenEvent(endedBy).catch(() => {});
   if (dndEnabledByApp) {
     invoke("disable_dnd").catch(() => {});
