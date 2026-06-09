@@ -167,7 +167,6 @@ pub fn run() {
         .plugin(tauri_kit_updater::plugin())
         .plugin(tauri_kit_meeting::plugin(tauri_kit_meeting::MeetingConfig::default()))
         .plugin(tauri_kit_settings::with_logging())
-        .plugin(tauri_kit_settings::with_kit_commands())
         .setup(|app| {
             let handle = app.handle().clone();
             let mut settings = settings::load(&handle);
@@ -326,6 +325,8 @@ pub fn run() {
             pair_phone,
             push_state,
             send_test_push,
+            tauri_kit_settings::kit_copy_logs,
+            tauri_kit_settings::kit_reset_settings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
