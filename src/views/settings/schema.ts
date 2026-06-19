@@ -230,7 +230,7 @@ export const settingsSchema = defineSchema({
               kind: "toggle",
               label: "Auto-detect meetings",
               tooltip:
-                "When you're in a call (a browser holding the camera/mic, or a known meeting app playing audio), block fullscreen breaks, mute sounds, and switch to the Other timer.",
+                "When you're in a call (a browser holding the camera/mic, or a known meeting app holding the mic), block fullscreen breaks, mute sounds, and switch to the Other timer.",
             },
             {
               key: "meeting_hide_from_capture",
@@ -244,7 +244,7 @@ export const settingsSchema = defineSchema({
               kind: "text",
               label: "Meeting apps",
               tooltip:
-                "Comma-separated process names checked for active audio (covers native-app calls with camera and mic off, e.g. Discord). Edit to add or remove apps. Takes effect when you save.",
+                "Comma-separated process names for native call apps (Teams, Zoom, Slack, Webex). A call is detected when one of these holds the mic, which also works while you're muted. Apps that hold the mic whenever they run (e.g. Discord) can't be told apart from idle, so they're not auto-detected here - use the meeting hotkey for those. Takes effect when you save.",
             },
             {
               key: "meeting_browsers",
