@@ -80,7 +80,7 @@ body {
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  border-radius: var(--radius-badge, 8px);
+  border-radius: var(--radius-badge, 6px);
   padding: 4px 9px;
   font-size: 13px;
   cursor: pointer;
