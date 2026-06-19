@@ -28,6 +28,13 @@ import { setupVisibility } from "./views/timer/visibility";
 import { setupWindowEvents } from "./views/timer/window-events";
 import { MeetingPolicy } from "./views/timer/meeting-mode";
 import { onMeetingChanged } from "../vendor/tauri_kit/frontend/meeting/subscribe";
+import {
+  PHASE_WORK,
+  PHASE_SHORT,
+  PHASE_LONG,
+  PHASE_OTHER,
+  TimerStateMachine,
+} from "./views/timer/timer-state";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -37,22 +44,7 @@ const { listen } = window.__TAURI__.event;
 // always "find" an update and nag. import.meta.env.DEV is true only under vite dev.
 if (!import.meta.env.DEV) runAutoUpdateCheck();
 
-const PHASE_WORK = "work";
-const PHASE_SHORT = "short";
-const PHASE_LONG = "long";
-const PHASE_OTHER = "other";
-
 let settings = null;
-let phase = PHASE_WORK;
-let remainingSec = 25 * 60;
-let running = false;
-let starting = false; // synchronous re-entrancy guard across startTimer's await window
-let tickHandle = null;
-let workSessionsCompleted = 0;
-let musicPausedByApp = false;
-let dndEnabledByApp = false;
-let intervalStartMs = 0;        // wall-clock when current run-interval began
-let intervalStartRemainingSec = 0; // remainingSec snapshot at that moment
 let meetingPolicy = null;
 // Signal must stay clear this long before a meeting counts as ended. Safe to keep
 // short: meeting apps (incl. Google Meet) hold the mic while muted, so the signal
@@ -60,60 +52,6 @@ let meetingPolicy = null;
 const MEETING_GRACE_MS = 20000;
 
 const STATE_KEY = "pomodoro-overlay-state";
-
-// Fire-and-forget push of current timer state to the Rust backend, which decides
-// (enabled + paired + per-phase toggles) whether to forward it to the paired phone.
-// Must never block or throw into the timer path.
-function pushState(event, endedPhase) {
-  const nowMs = Date.now();
-  const etaEpochMs = running && remainingSec > 0 ? nowMs + remainingSec * 1000 : 0;
-  const payload = {
-    phase,
-    running,
-    etaEpochMs,
-    remainingSec,
-    event,
-    endedPhase,
-    updatedAtMs: nowMs,
-    workSessionsCompleted,
-  };
-  invoke("push_state", { payload }).catch((e) => console.warn("push_state failed", e));
-}
-
-function saveState() {
-  if (phase === PHASE_SNOOZE) return;
-  localStorage.setItem(STATE_KEY, JSON.stringify({
-    phase, remainingSec, running, workSessionsCompleted,
-    savedAt: Date.now(),
-  }));
-}
-
-function loadState() {
-  if (settings?.reset_on_restart) return false;
-  try {
-    const raw = localStorage.getItem(STATE_KEY);
-    if (!raw) return false;
-    const s = JSON.parse(raw);
-    phase = s.phase ?? phase;
-    if (phase === PHASE_SNOOZE) { phase = PHASE_WORK; return false; }
-    workSessionsCompleted = s.workSessionsCompleted ?? 0;
-    const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
-    if (phase === PHASE_OTHER) {
-      // Stopwatch: stored remainingSec holds elapsed seconds; add wall-time elapsed.
-      remainingSec = Math.max(0, (s.remainingSec ?? 0) + elapsed);
-      return !!s.running;
-    }
-    remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(phase)) - elapsed);
-    if (remainingSec <= 10) {
-      remainingSec = phaseDuration(phase);
-      return false;
-    }
-    return !!s.running && remainingSec > 0;
-  } catch (e) {
-    console.warn("loadState failed", e);
-    return false;
-  }
-}
 
 const $ = (id) => document.getElementById(id);
 
@@ -126,12 +64,73 @@ function phaseDuration(p) {
   return settings.work_minutes * 60;
 }
 
+// Assigned by setupVisibility() during init(), before the first render().
+let syncClickThrough = () => {};
+let applyVisibility = () => {};
+
+// The timer state machine owns all phase/timer state + the start/pause/skip/
+// auto-advance logic; main.ts wires DOM + IPC side effects into it.
+const sm = new TimerStateMachine({
+  invoke,
+  getSettings: () => settings,
+  phaseDuration,
+  openEvent,
+  closeOpenEvent,
+  playSound,
+  fsState,
+  enterOverlayFullscreen,
+  exitOverlayFullscreen,
+  renderSnoozeButton,
+  getMeetingPolicy: () => meetingPolicy,
+  render: () => render(),
+  applyPhaseClass: () => applyPhaseClass(),
+  syncClickThrough: () => syncClickThrough(),
+});
+
+function saveState() {
+  if (sm.phase === PHASE_SNOOZE) return;
+  localStorage.setItem(STATE_KEY, JSON.stringify({
+    phase: sm.phase,
+    remainingSec: sm.remainingSec,
+    running: sm.running,
+    workSessionsCompleted: sm.workSessionsCompleted,
+    savedAt: Date.now(),
+  }));
+}
+
+function loadState() {
+  if (settings?.reset_on_restart) return false;
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    sm.phase = s.phase ?? sm.phase;
+    if (sm.phase === PHASE_SNOOZE) { sm.phase = PHASE_WORK; return false; }
+    sm.workSessionsCompleted = s.workSessionsCompleted ?? 0;
+    const elapsed = s.running ? Math.floor((Date.now() - s.savedAt) / 1000) : 0;
+    if (sm.phase === PHASE_OTHER) {
+      // Stopwatch: stored remainingSec holds elapsed seconds; add wall-time elapsed.
+      sm.remainingSec = Math.max(0, (s.remainingSec ?? 0) + elapsed);
+      return !!s.running;
+    }
+    sm.remainingSec = Math.max(0, (s.remainingSec ?? phaseDuration(sm.phase)) - elapsed);
+    if (sm.remainingSec <= 10) {
+      sm.remainingSec = phaseDuration(sm.phase);
+      return false;
+    }
+    return !!s.running && sm.remainingSec > 0;
+  } catch (e) {
+    console.warn("loadState failed", e);
+    return false;
+  }
+}
+
 function applyPhaseClass() {
   const c = $("app");
   c.classList.remove("phase-work", "phase-short", "phase-long", "phase-snooze", "phase-other");
-  c.classList.add(`phase-${phase}`);
+  c.classList.add(`phase-${sm.phase}`);
   document.querySelectorAll(".tab-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.phase === phase);
+    b.classList.toggle("active", b.dataset.phase === sm.phase);
   });
 }
 
@@ -144,218 +143,25 @@ function fmt(sec) {
 }
 
 function timerIsEditable() {
-  return !!(settings?.editable_when_paused && !running && phase !== PHASE_SNOOZE);
+  return !!(settings?.editable_when_paused && !sm.running && sm.phase !== PHASE_SNOOZE);
 }
-
-// Assigned by setupVisibility() during init(), before the first render().
-let syncClickThrough = () => {};
-let applyVisibility = () => {};
 
 function render() {
   const timerEl = document.querySelector(".timer");
   if (!isEditMode()) {
-    timerEl.textContent = fmt(remainingSec);
+    timerEl.textContent = fmt(sm.remainingSec);
   }
   timerEl.classList.toggle("timer-editable", timerIsEditable() && !isEditMode());
-  $("play").textContent = running ? "PAUSE" : "START";
-  $("skip").classList.toggle("visible", running);
-  $("app").classList.toggle("is-paused", !running);
+  $("play").textContent = sm.running ? "PAUSE" : "START";
+  $("skip").classList.toggle("visible", sm.running);
+  $("app").classList.toggle("is-paused", !sm.running);
   renderSnoozeButton();
   applyVisibility();
   saveState();
 }
 
 function exitEditMode(confirm) {
-  exitEditModeImpl(confirm, (v) => { remainingSec = v; }, render);
-}
-
-function tick() {
-  const elapsedSec = Math.floor((Date.now() - intervalStartMs) / 1000);
-  if (phase === PHASE_OTHER) {
-    remainingSec = intervalStartRemainingSec + elapsedSec; // stopwatch: count up
-    render();
-    return;
-  }
-  remainingSec = Math.max(0, intervalStartRemainingSec - elapsedSec);
-  if (remainingSec <= 0) {
-    handlePhaseEnd(true).catch((e) => console.warn("handlePhaseEnd error", e));
-    return;
-  }
-  render();
-}
-
-async function startTimer() {
-  // `running` flips only after the await below, so a synchronous guard on it
-  // alone lets a re-entrant call slip through the await window and create a
-  // second interval (orphaning the first - its handle is overwritten). The
-  // `starting` flag closes that window synchronously.
-  if (running || starting) return;
-  starting = true;
-  try {
-    if (phase === PHASE_WORK && fsState.isOverlayFullscreen) {
-      exitOverlayFullscreen();
-    }
-    const pmob = settings?.pause_music_on_break;
-    if (pmob === "on_break" || pmob === "not_running_focused") {
-      if (phase === PHASE_WORK && musicPausedByApp) {
-        invoke("media_resume").catch(() => {});
-        musicPausedByApp = false;
-      } else if ((phase === PHASE_SHORT || phase === PHASE_LONG) && !musicPausedByApp) {
-        const paused = await invoke("media_pause_if_playing").catch(() => false);
-        if (paused) musicPausedByApp = true;
-      }
-    }
-    if (settings?.dnd_on_focus && phase === PHASE_WORK && !dndEnabledByApp) {
-      invoke("enable_dnd").catch(() => {});
-      dndEnabledByApp = true;
-    }
-    // Stats: open event. If we're resuming after a pause (same phase still set),
-    // share the existing session_id.
-    const configured = phase === PHASE_OTHER ? null : phaseDuration(phase);
-    await openEvent(phase, configured, /* resumeSession */ true);
-    running = true;
-    intervalStartMs = Date.now();
-    intervalStartRemainingSec = remainingSec;
-    // Defensive: never let two intervals coexist. Clear any stray handle before
-    // assigning the new one so an orphaned tick can't survive.
-    if (tickHandle !== null) {
-      clearInterval(tickHandle);
-      tickHandle = null;
-    }
-    tickHandle = setInterval(tick, 1000);
-    syncClickThrough();
-    render();
-    pushState("start");
-  } finally {
-    starting = false;
-  }
-}
-
-function pauseTimer(endedBy = "pause") {
-  // Always kill any live interval first, regardless of `running` - this is the
-  // single chokepoint that guarantees no tick survives a pause.
-  if (tickHandle !== null) {
-    clearInterval(tickHandle);
-    tickHandle = null;
-  }
-  if (!running) return;
-  running = false;
-  closeOpenEvent(endedBy).catch(() => {});
-  if (dndEnabledByApp) {
-    invoke("disable_dnd").catch(() => {});
-    dndEnabledByApp = false;
-  }
-  if (settings?.pause_music_on_break === "not_running_focused" && phase === PHASE_WORK && !musicPausedByApp) {
-    invoke("media_pause_if_playing").then((paused) => { if (paused) musicPausedByApp = true; }).catch(() => {});
-  }
-  syncClickThrough();
-  render();
-  pushState("pause");
-}
-
-// Manually leaving the Other phase (tab click, skip button, skip keybind) means
-// "meeting's over": drop meeting-mode so sounds/fullscreen resume and the next
-// meeting can re-trigger. The policy's own enter targets Other (skipped here)
-// and its exit sets active=false first, so policy-driven changes never match.
-function leaveMeetingIfActive(nextPhase) {
-  if (meetingPolicy?.active && nextPhase !== PHASE_OTHER) {
-    meetingPolicy.leaveMeetingPhase();
-  }
-}
-
-function setPhase(p) {
-  // Snooze is cancelled when user manually switches phase
-  if (fsState.snoozeHandle) {
-    clearInterval(fsState.snoozeHandle);
-    fsState.snoozeHandle = null;
-    fsState.pendingBreakPhase = null;
-  }
-  leaveMeetingIfActive(p);
-  pauseTimer("switch");
-  phase = p;
-  remainingSec = phaseDuration(phase);
-  applyPhaseClass();
-  render();
-}
-
-// Serializes phase transitions. Each transition fires async fullscreen
-// enter/exit invokes; if a second skip starts while the first is mid-flight,
-// the enter/exit window ops can reorder at the OS level and leave the overlay
-// stuck fullscreen during a WORK phase (and races the size-save). Spamming skip
-// can't outrun a settled transition, so drop re-entrant calls while one runs.
-let phaseTransitionInFlight = false;
-
-async function handlePhaseEnd(natural = false) {
-  if (phaseTransitionInFlight) return;
-  phaseTransitionInFlight = true;
-  try {
-    await runPhaseEnd(natural);
-  } finally {
-    phaseTransitionInFlight = false;
-  }
-}
-
-async function runPhaseEnd(natural = false) {
-  if (running) {
-    await closeOpenEvent(natural ? "natural" : "skip");
-  }
-  pauseTimer();
-  if (natural && !meetingPolicy?.active) playSound().catch(() => {});
-  const ended = phase;
-
-  if (ended === PHASE_SNOOZE) {
-    const next = fsState.pendingBreakPhase ?? PHASE_SHORT;
-    fsState.pendingBreakPhase = null;
-    setPhaseInternal(next);
-    pushState(natural ? "phase-end" : "skip", ended);
-    invoke("show_main_window").catch(() => {});
-    await enterOverlayFullscreen();
-    renderSnoozeButton();
-    if (settings.auto_start_break) await startTimer();
-    return;
-  }
-
-  if (ended === PHASE_OTHER) {
-    // Stopwatch ended manually (skip). Just return to work; do not auto-start.
-    setPhaseInternal(PHASE_WORK);
-    pushState(natural ? "phase-end" : "skip", ended);
-    return;
-  }
-
-  let next;
-  if (ended === PHASE_WORK) {
-    workSessionsCompleted += 1;
-    const isLong =
-      workSessionsCompleted % settings.sessions_before_long_break === 0;
-    next = isLong ? PHASE_LONG : PHASE_SHORT;
-  } else {
-    next = PHASE_WORK;
-  }
-  setPhaseInternal(next);
-  pushState(natural ? "phase-end" : "skip", ended);
-  invoke("show_main_window").catch(() => {});
-
-  if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !meetingPolicy?.active) {
-    await enterOverlayFullscreen();
-    if (settings.auto_start_break) await startTimer();
-  } else {
-    if (ended !== PHASE_WORK && fsState.isOverlayFullscreen) {
-      await exitOverlayFullscreen();
-    }
-    const shouldAutoStart =
-      next === PHASE_WORK ? settings.auto_start_work : settings.auto_start_break;
-    if (shouldAutoStart) await startTimer();
-  }
-}
-
-// Internal phase switch without fullscreen/snooze side effects
-function setPhaseInternal(p) {
-  leaveMeetingIfActive(p);
-  pauseTimer();
-  phase = p;
-  remainingSec = phaseDuration(phase);
-  applyPhaseClass();
-  render();
+  exitEditModeImpl(confirm, (v) => { sm.remainingSec = v; }, render);
 }
 
 function addButtonSounds(btn) {
@@ -366,25 +172,25 @@ function addButtonSounds(btn) {
 
 function setupControls() {
   $("play").addEventListener("click", () =>
-    running ? pauseTimer() : startTimer().catch(() => {}),
+    sm.running ? sm.pause() : sm.start().catch(() => {}),
   );
-  $("skip").addEventListener("click", () => handlePhaseEnd().catch(() => {}));
+  $("skip").addEventListener("click", () => sm.endPhase().catch(() => {}));
   $("snooze").addEventListener("click", () => {
-    if (settings?.pause_music_on_break !== "never" && musicPausedByApp) {
+    if (settings?.pause_music_on_break !== "never" && sm.musicPausedByApp) {
       invoke("media_resume").catch(() => {});
-      musicPausedByApp = false;
+      sm.musicPausedByApp = false;
     }
     startSnooze();
   });
   document.querySelectorAll(".tab-btn").forEach((b) => {
-    b.addEventListener("click", () => setPhase(b.dataset.phase));
+    b.addEventListener("click", () => sm.switchPhase(b.dataset.phase));
   });
   [$("play"), $("skip"), $("snooze"), ...document.querySelectorAll(".tab-btn")].forEach(addButtonSounds);
   setupResizeHandles();
   setupTimerEdit({
     timerIsEditable,
-    getRemainingSec: () => remainingSec,
-    setRemainingSec: (v) => { remainingSec = v; },
+    getRemainingSec: () => sm.remainingSec,
+    setRemainingSec: (v) => { sm.remainingSec = v; },
     render,
   });
 }
@@ -421,22 +227,22 @@ function setupResizeHandles() {
 async function init() {
   settings = await invoke("get_settings");
   initSounds(() => settings);
-  remainingSec = phaseDuration(phase);
+  sm.remainingSec = phaseDuration(sm.phase);
   const shouldResume = loadState();
   ({ syncClickThrough, applyVisibility } = setupVisibility({
     getSettings: () => settings,
-    getRunning: () => running,
-    getPhase: () => phase,
+    getRunning: () => sm.running,
+    getPhase: () => sm.phase,
   }));
   initFullscreen({
     getSettings: () => settings,
-    getPhase: () => phase,
-    setPhase: (p) => { phase = p; },
-    setRemainingSec: (v) => { remainingSec = v; },
+    getPhase: () => sm.phase,
+    setPhase: (p) => { sm.phase = p; },
+    setRemainingSec: (v) => { sm.remainingSec = v; },
     getPhaseDuration: phaseDuration,
     fmt,
     applyPhaseClass,
-    startTimer,
+    startTimer: () => sm.start(),
     render,
     refreshClickThrough: () => {
       applyVisibility();
@@ -445,27 +251,27 @@ async function init() {
   });
   applyPhaseClass();
   render();
-  if (shouldResume) startTimer();
+  if (shouldResume) sm.start();
   setupControls();
   meetingPolicy = new MeetingPolicy({
     isEnabled: () => !!settings?.meeting_detection_enabled,
     graceMs: () => MEETING_GRACE_MS,
     onEnter: () => {
       if (fsState.isOverlayFullscreen) exitOverlayFullscreen();
-      setPhase(PHASE_OTHER);
-      if (!running) startTimer().catch(() => {});
+      sm.switchPhase(PHASE_OTHER);
+      if (!sm.running) sm.start().catch(() => {});
     },
     onExit: async () => {
       // Meeting ended (grace) or hotkey-off: apply the configured end action.
       const action = settings?.meeting_end_action ?? "break";
       if (action === "nothing") return; // keep counting in Other
-      pauseTimer("switch");
+      sm.pause("switch");
       if (action === "break") {
-        setPhase(PHASE_SHORT);
+        sm.switchPhase(PHASE_SHORT);
         if (settings?.meeting_break_fullscreen) await enterOverlayFullscreen();
-        startTimer().catch(() => {});
+        sm.start().catch(() => {});
       } else {
-        setPhase(PHASE_WORK); // "focus"
+        sm.switchPhase(PHASE_WORK); // "focus"
       }
     },
   });
@@ -480,20 +286,20 @@ async function init() {
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
   await setupWindowEvents({
-    getRunning: () => running,
-    pause: pauseTimer,
-    start: startTimer,
-    skipPhase: () => handlePhaseEnd(),
+    getRunning: () => sm.running,
+    pause: (endedBy) => sm.pause(endedBy),
+    start: () => sm.start(),
+    skipPhase: () => sm.endPhase(),
     getSettings: () => settings,
     setSettings: (s) => { settings = s; },
-    getPhase: () => phase,
-    setPhase: (p) => { phase = p; },
-    setRemainingSec: (v) => { remainingSec = v; },
-    setWorkSessionsCompleted: (v) => { workSessionsCompleted = v; },
-    getMusicPausedByApp: () => musicPausedByApp,
-    setMusicPausedByApp: (v) => { musicPausedByApp = v; },
-    getDndEnabledByApp: () => dndEnabledByApp,
-    setDndEnabledByApp: (v) => { dndEnabledByApp = v; },
+    getPhase: () => sm.phase,
+    setPhase: (p) => { sm.phase = p; },
+    setRemainingSec: (v) => { sm.remainingSec = v; },
+    setWorkSessionsCompleted: (v) => { sm.workSessionsCompleted = v; },
+    getMusicPausedByApp: () => sm.musicPausedByApp,
+    setMusicPausedByApp: (v) => { sm.musicPausedByApp = v; },
+    getDndEnabledByApp: () => sm.dndEnabledByApp,
+    setDndEnabledByApp: (v) => { sm.dndEnabledByApp = v; },
     syncClickThrough,
     render,
     applyPhaseClass,
