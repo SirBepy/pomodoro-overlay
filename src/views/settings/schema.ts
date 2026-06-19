@@ -1,5 +1,4 @@
 import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
-import { keybindField } from "./keybind-field";
 import { clearStatsField } from "./clear-stats-field";
 import { phonePairingField } from "./phone-pairing-field";
 
@@ -278,7 +277,7 @@ export const settingsSchema = defineSchema({
         {
           title: "Manual toggle",
           fields: [
-            keybindField({ key: "keybind_meeting_toggle", label: "Toggle meeting mode" }),
+            { key: "keybind_meeting_toggle", kind: "keybind", label: "Toggle meeting mode" },
           ],
         },
       ],
@@ -349,9 +348,9 @@ export const settingsSchema = defineSchema({
         {
           title: "Timer controls",
           fields: [
-            keybindField({ key: "keybind_pause", label: "Pause / Resume" }),
-            keybindField({ key: "keybind_skip", label: "Skip phase" }),
-            keybindField({ key: "keybind_show_hide", label: "Show / Hide overlay" }),
+            { key: "keybind_pause", kind: "keybind", label: "Pause / Resume" },
+            { key: "keybind_skip", kind: "keybind", label: "Skip phase" },
+            { key: "keybind_show_hide", kind: "keybind", label: "Show / Hide overlay" },
           ],
         },
       ],

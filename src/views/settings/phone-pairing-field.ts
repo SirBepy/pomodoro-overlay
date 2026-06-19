@@ -15,7 +15,7 @@ export interface PhonePairingFieldDef extends BaseField {
  * calls it once and never re-renders on internal state changes). So all
  * mutable UI - status line, transient toasts, the re-pair banner - is driven
  * by direct DOM manipulation against ids stamped into the template, the same
- * approach keybind-field uses for its capture state.
+ * approach the kit keybind field uses for its capture state.
  */
 
 const STATUS_ID = "phone-pairing-status";
