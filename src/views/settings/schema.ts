@@ -1,6 +1,5 @@
 import { defineSchema } from "../../../vendor/tauri_kit/frontend/settings/schema";
 import { clearStatsField } from "./clear-stats-field";
-import { phonePairingField } from "./phone-pairing-field";
 
 export const settingsSchema = defineSchema({
   sections: [
@@ -301,42 +300,6 @@ export const settingsSchema = defineSchema({
               pickerCommand: "pick_sound_file",
               defaultLabel: "Default tone",
               tooltip: "Pick a .wav or .mp3 to play instead of the default chime.",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Phone",
-      groups: [
-        {
-          title: "Companion",
-          fields: [
-            phonePairingField({ key: "phone_pairing", label: "Pairing code" }),
-            {
-              key: "phone_notify_enabled",
-              kind: "toggle",
-              label: "Notify my phone",
-              tooltip:
-                "Send a push to your paired phone when a phase ends naturally (skips stay silent).",
-            },
-            {
-              key: "notify_on_work_end",
-              kind: "toggle",
-              label: "Notify on focus end",
-              visibleWhen: (s) => s.phone_notify_enabled === true,
-            },
-            {
-              key: "notify_on_short_end",
-              kind: "toggle",
-              label: "Notify on short break end",
-              visibleWhen: (s) => s.phone_notify_enabled === true,
-            },
-            {
-              key: "notify_on_long_end",
-              kind: "toggle",
-              label: "Notify on long break end",
-              visibleWhen: (s) => s.phone_notify_enabled === true,
             },
           ],
         },

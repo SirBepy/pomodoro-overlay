@@ -277,11 +277,6 @@ async function init() {
   });
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
-  // Push service dropped the phone subscription; settings UI will surface a re-pair
-  // banner in a later task. Wire the listener now so the event has a handler.
-  listen("push-subscription-gone", () => {
-    console.warn("phone unpaired by push service; re-pair needed");
-  });
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);

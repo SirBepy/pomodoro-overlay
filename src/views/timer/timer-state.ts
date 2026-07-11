@@ -84,31 +84,6 @@ export class TimerStateMachine {
     this.now = deps.now ?? (() => Date.now());
   }
 
-  // ── Phone push ─────────────────────────────────────────────
-  /**
-   * Fire-and-forget push of current timer state to the Rust backend, which
-   * decides whether to forward it to the paired phone. Must never block/throw
-   * into the timer path.
-   */
-  pushState(event: string, endedPhase?: string): void {
-    const nowMs = this.now();
-    const etaEpochMs =
-      this.running && this.remainingSec > 0 ? nowMs + this.remainingSec * 1000 : 0;
-    const payload = {
-      phase: this.phase,
-      running: this.running,
-      etaEpochMs,
-      remainingSec: this.remainingSec,
-      event,
-      endedPhase,
-      updatedAtMs: nowMs,
-      workSessionsCompleted: this.workSessionsCompleted,
-    };
-    this.deps
-      .invoke("push_state", { payload })
-      .catch((e) => console.warn("push_state failed", e));
-  }
-
   // ── Tick loop ──────────────────────────────────────────────
   private tick(): void {
     const elapsedSec = Math.floor((this.now() - this.intervalStartMs) / 1000);
@@ -171,7 +146,6 @@ export class TimerStateMachine {
       this.tickHandle = setInterval(() => this.tick(), 1000);
       this.deps.syncClickThrough();
       this.deps.render();
-      this.pushState("start");
     } finally {
       this.starting = false;
     }
@@ -206,7 +180,6 @@ export class TimerStateMachine {
     }
     this.deps.syncClickThrough();
     this.deps.render();
-    this.pushState("pause");
   }
 
   // ── Phase switching ────────────────────────────────────────
@@ -282,7 +255,6 @@ export class TimerStateMachine {
       const next = this.deps.fsState.pendingBreakPhase ?? PHASE_SHORT;
       this.deps.fsState.pendingBreakPhase = null;
       this.setPhaseInternal(next);
-      this.pushState(natural ? "phase-end" : "skip", ended);
       this.deps.invoke("show_main_window").catch(() => {});
       await this.deps.enterOverlayFullscreen();
       this.deps.renderSnoozeButton();
@@ -293,7 +265,6 @@ export class TimerStateMachine {
     if (ended === PHASE_OTHER) {
       // Stopwatch ended manually (skip). Just return to work; do not auto-start.
       this.setPhaseInternal(PHASE_WORK);
-      this.pushState(natural ? "phase-end" : "skip", ended);
       return;
     }
 
@@ -306,7 +277,6 @@ export class TimerStateMachine {
       next = PHASE_WORK;
     }
     this.setPhaseInternal(next);
-    this.pushState(natural ? "phase-end" : "skip", ended);
     this.deps.invoke("show_main_window").catch(() => {});
 
     if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active) {

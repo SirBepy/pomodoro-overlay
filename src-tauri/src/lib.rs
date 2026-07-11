@@ -1,15 +1,14 @@
 mod hotkeys;
 mod ipc;
-mod push;
 mod settings;
 mod state;
 mod stats;
 
 use ipc::commands::{
-    disable_keep_awake, enable_keep_awake, get_corner_position, get_pairing_status, get_settings,
-    get_vapid_public_key, is_cursor_over_window, is_modifier_held, media_pause_if_playing,
-    media_resume, open_settings_window, pair_phone, pick_sound_file, push_state, quit_app,
-    save_settings, save_window_size, send_test_push, set_click_through,
+    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
+    is_cursor_over_window, is_modifier_held, media_pause_if_playing,
+    media_resume, open_settings_window, pick_sound_file, quit_app,
+    save_settings, save_window_size, set_click_through,
     set_window_fullscreen, set_window_position, set_window_size, show_main_window, start_resize,
 };
 use ipc::dnd::{disable_dnd, enable_dnd};
@@ -170,7 +169,7 @@ pub fn run() {
         .plugin(tauri_kit_settings::with_logging())
         .setup(|app| {
             let handle = app.handle().clone();
-            let mut settings = settings::load(&handle);
+            let settings = settings::load(&handle);
             log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
             apply_autostart(&handle, settings.autostart);
             tauri_kit_meeting::set_apps(
@@ -209,21 +208,6 @@ pub fn run() {
                 let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 100u32)));
                 let _ = win.show();
                 let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
-            }
-            // Generate VAPID keypair on first run so the private key never leaves this PC.
-            if settings.vapid_private_key.is_empty() {
-                match push::vapid::generate_vapid_keypair() {
-                    Ok((pem, pubkey)) => {
-                        settings.vapid_private_key = pem;
-                        settings.vapid_public_key = pubkey;
-                        if let Err(e) = settings::persist(&handle, &settings) {
-                            log::warn!("failed to persist generated VAPID keys: {e}");
-                        } else {
-                            log::info!("generated VAPID keypair on first run");
-                        }
-                    }
-                    Err(e) => log::warn!("VAPID keygen failed: {e}"),
-                }
             }
             handle.manage(SettingsState(Mutex::new(settings)));
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
@@ -321,11 +305,6 @@ pub fn run() {
             get_stats_range,
             reset_stats,
             heartbeat_stats,
-            get_vapid_public_key,
-            get_pairing_status,
-            pair_phone,
-            push_state,
-            send_test_push,
             tauri_kit_settings::kit_copy_logs,
             tauri_kit_settings::kit_reset_settings,
         ])
