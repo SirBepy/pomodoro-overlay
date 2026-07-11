@@ -74,6 +74,14 @@ export const settingsSchema = defineSchema({
                 "When paused, click the time digits to manually adjust them. Off = read-only.",
             },
             {
+              key: "ltr_time_entry",
+              kind: "toggle",
+              label: "Type time left-to-right",
+              visibleWhen: (s) => s.editable_when_paused === true,
+              tooltip:
+                "On: typing fills minutes first - \"1\"=10:00, \"12\"=12:00, \"123\"=12:30. Off: digits shift in from the right like a calculator - \"1\"=00:01, \"12\"=00:12.",
+            },
+            {
               key: "reset_on_restart",
               kind: "toggle",
               label: "Reset session progress on launch",

@@ -3,9 +3,31 @@ let editMode = false;
 let editBuffer = ["0","0","0","0"];
 let editSnapshot = 0;
 let editDirty = false;
+let editCount = 0;
 
 export function isEditMode() {
   return editMode;
+}
+
+/**
+ * Place a typed digit into the 4-slot MMSS buffer.
+ *
+ * LTR (default): fill left-to-right - "1"->10:00, "12"->12:00, "123"->12:30,
+ * "1234"->12:34. Once all four slots are filled, further digits roll the window
+ * left (drop the oldest) so a mistype can be corrected by typing over it.
+ *
+ * RTL (legacy): digits shift in from the right like a calculator - "1"->00:01,
+ * "12"->00:12, "1234"->12:34.
+ *
+ * Pure: takes the current buffer + typed-digit count, returns the next pair.
+ */
+export function pushDigit(buffer, count, digit, ltr) {
+  if (ltr && count < 4) {
+    const next = [...buffer];
+    next[count] = digit;
+    return { buffer: next, count: count + 1 };
+  }
+  return { buffer: [...buffer.slice(1), digit], count };
 }
 
 export function renderEditMode() {
@@ -17,6 +39,7 @@ export function enterEditMode(getRemainingSec) {
   if (editMode) return;
   editMode = true;
   editDirty = false;
+  editCount = 0;
   const remainingSec = getRemainingSec();
   editSnapshot = remainingSec;
   const m = Math.floor(remainingSec / 60);
@@ -49,7 +72,7 @@ export function exitEditMode(confirm, setRemainingSec, render) {
   render();
 }
 
-export function setupTimerEdit({ timerIsEditable, getRemainingSec, setRemainingSec, render }) {
+export function setupTimerEdit({ timerIsEditable, getRemainingSec, setRemainingSec, render, ltrEntry }) {
   const timerEl = document.querySelector(".timer");
   timerEl.setAttribute("tabindex", "0");
 
@@ -64,8 +87,12 @@ export function setupTimerEdit({ timerIsEditable, getRemainingSec, setRemainingS
       if (!editDirty) {
         editDirty = true;
         editBuffer = ["0","0","0","0"];
+        editCount = 0;
       }
-      editBuffer = [...editBuffer.slice(1), e.key];
+      const ltr = ltrEntry ? ltrEntry() : true;
+      const res = pushDigit(editBuffer, editCount, e.key, ltr);
+      editBuffer = res.buffer;
+      editCount = res.count;
       renderEditMode();
     } else if (e.key === "Enter") {
       e.preventDefault();

@@ -192,6 +192,7 @@ function setupControls() {
     getRemainingSec: () => sm.remainingSec,
     setRemainingSec: (v) => { sm.remainingSec = v; },
     render,
+    ltrEntry: () => settings?.ltr_time_entry !== false,
   });
 }
 
