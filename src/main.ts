@@ -245,6 +245,7 @@ async function init() {
     getPhaseDuration: phaseDuration,
     fmt,
     applyPhaseClass,
+    pauseTimer: () => sm.pause("switch"),
     startTimer: () => sm.start(),
     render,
     refreshClickThrough: () => {

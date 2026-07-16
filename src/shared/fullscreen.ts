@@ -49,7 +49,16 @@ export async function exitOverlayFullscreen() {
 }
 
 export function startSnooze() {
-  fsState.pendingBreakPhase = _host.getPhase();
+  const phase = _host.getPhase();
+  // Stop the running interval first - its anchor (intervalStartRemainingSec) is
+  // still tied to the phase we're leaving, so the next tick would recompute
+  // remainingSec from that stale anchor and clobber the fresh SNOOZE_DURATION
+  // set below. Re-snoozing while already snoozing hits this too: pauseTimer()
+  // clears the old anchor, then startTimer() re-anchors from SNOOZE_DURATION.
+  _host.pauseTimer();
+  if (phase !== PHASE_SNOOZE) {
+    fsState.pendingBreakPhase = phase;
+  }
   _host.setPhase(PHASE_SNOOZE);
   _host.setRemainingSec(SNOOZE_DURATION);
   _host.applyPhaseClass();
