@@ -2,11 +2,11 @@ name: CI
 
 # Dependency-invariant guard. Runs on every push/PR (not just at release) so a
 # regression is caught the moment it lands, not weeks later when a tag is cut.
-# Two checks, both inherited from the old hand-rolled release.yml:
-#   1. the crate compiles, including the pure-Rust Web Push stack;
-#   2. openssl-sys never enters the dependency tree (the push stack is
-#      deliberately OpenSSL-free so the Windows build needs no Perl/OpenSSL
-#      toolchain - see the pure-Rust web-push design).
+# Two checks:
+#   1. the crate compiles;
+#   2. openssl-sys never enters the dependency tree - it needs a Perl/OpenSSL
+#      toolchain to build that this Windows runner doesn't have, so any crate
+#      pulling it in would silently break the release build.
 # Runs on windows-latest with the msvc target so the `#[cfg(windows)]` code
 # (WinAPI resize, meeting detection, etc.) is actually checked.
 
@@ -48,7 +48,7 @@ jobs:
           key: ci-x86_64-pc-windows-msvc
           cache-on-failure: true
 
-      - name: Verify crate compiles (incl. pure-Rust push crypto)
+      - name: Verify crate compiles
         working-directory: src-tauri
         run: cargo check --target x86_64-pc-windows-msvc
 
