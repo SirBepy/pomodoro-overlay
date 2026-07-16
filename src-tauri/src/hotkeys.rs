@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
-/// Re-registers global hotkeys for pause, skip, and show/hide.
+/// Re-registers global hotkeys for pause, skip, show/hide, meeting toggle, and snooze.
 ///
 /// Pass old_* = the shortcuts previously registered (to unregister them).
 /// Pass new_* = the shortcuts to register now (None = no binding).
@@ -15,16 +15,18 @@ pub fn register_hotkeys(
     old_skip: Option<&str>,
     old_show_hide: Option<&str>,
     old_meeting: Option<&str>,
+    old_snooze: Option<&str>,
     new_pause: Option<&str>,
     new_skip: Option<&str>,
     new_show_hide: Option<&str>,
     new_meeting: Option<&str>,
+    new_snooze: Option<&str>,
 ) {
     let gs = app.global_shortcut();
 
     // Unregister previous shortcuts (dedup so a shared combo isn't unregistered twice).
     let mut unregistered: HashSet<&str> = HashSet::new();
-    for s in [old_pause, old_skip, old_show_hide, old_meeting].into_iter().flatten() {
+    for s in [old_pause, old_skip, old_show_hide, old_meeting, old_snooze].into_iter().flatten() {
         if unregistered.insert(s) {
             let _ = gs.unregister(s);
         }
@@ -82,6 +84,19 @@ pub fn register_hotkeys(
                 }
             }) {
                 log::warn!("hotkeys: register meeting '{}' failed: {}", s, e);
+            }
+        }
+    }
+
+    if let Some(s) = new_snooze {
+        if registered.insert(s) {
+            let handle = app.clone();
+            if let Err(e) = gs.on_shortcut(s, move |_app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    let _ = handle.emit("hotkey-snooze", ());
+                }
+            }) {
+                log::warn!("hotkeys: register snooze '{}' failed: {}", s, e);
             }
         }
     }

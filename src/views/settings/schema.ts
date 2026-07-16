@@ -322,6 +322,7 @@ export const settingsSchema = defineSchema({
             { key: "keybind_pause", kind: "keybind", label: "Pause / Resume" },
             { key: "keybind_skip", kind: "keybind", label: "Skip phase" },
             { key: "keybind_show_hide", kind: "keybind", label: "Show / Hide overlay" },
+            { key: "keybind_snooze", kind: "keybind", label: "Snooze" },
           ],
         },
       ],

@@ -196,10 +196,12 @@ pub fn run() {
                 None,
                 None,
                 None,
+                None,
                 settings.keybind_pause.as_deref(),
                 settings.keybind_skip.as_deref(),
                 settings.keybind_show_hide.as_deref(),
                 settings.keybind_meeting_toggle.as_deref(),
+                settings.keybind_snooze.as_deref(),
             );
             if let Some(win) = handle.get_webview_window("main") {
                 let (w, h) = settings.expanded_size();

@@ -17,13 +17,14 @@ pub fn save_settings(
     state: State<'_, SettingsState>,
     settings: Settings,
 ) -> Result<(), String> {
-    let (old_pause, old_skip, old_show_hide, old_meeting) = {
+    let (old_pause, old_skip, old_show_hide, old_meeting, old_snooze) = {
         let s = state.0.lock().unwrap();
         (
             s.keybind_pause.clone(),
             s.keybind_skip.clone(),
             s.keybind_show_hide.clone(),
             s.keybind_meeting_toggle.clone(),
+            s.keybind_snooze.clone(),
         )
     };
     {
@@ -65,10 +66,12 @@ pub fn save_settings(
         old_skip.as_deref(),
         old_show_hide.as_deref(),
         old_meeting.as_deref(),
+        old_snooze.as_deref(),
         settings.keybind_pause.as_deref(),
         settings.keybind_skip.as_deref(),
         settings.keybind_show_hide.as_deref(),
         settings.keybind_meeting_toggle.as_deref(),
+        settings.keybind_snooze.as_deref(),
     );
     Ok(())
 }

@@ -170,18 +170,20 @@ function addButtonSounds(btn) {
   btn.addEventListener("mouseup", playReleaseSound);
 }
 
+function snooze() {
+  if (settings?.pause_music_on_break !== "never" && sm.musicPausedByApp) {
+    invoke("media_resume").catch(() => {});
+    sm.musicPausedByApp = false;
+  }
+  startSnooze();
+}
+
 function setupControls() {
   $("play").addEventListener("click", () =>
     sm.running ? sm.pause() : sm.start().catch(() => {}),
   );
   $("skip").addEventListener("click", () => sm.endPhase().catch(() => {}));
-  $("snooze").addEventListener("click", () => {
-    if (settings?.pause_music_on_break !== "never" && sm.musicPausedByApp) {
-      invoke("media_resume").catch(() => {});
-      sm.musicPausedByApp = false;
-    }
-    startSnooze();
-  });
+  $("snooze").addEventListener("click", snooze);
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.addEventListener("click", () => sm.switchPhase(b.dataset.phase));
   });
@@ -278,6 +280,7 @@ async function init() {
   });
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
+  await listen("hotkey-snooze", snooze);
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
