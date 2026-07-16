@@ -131,6 +131,37 @@ describe("TimerStateMachine", () => {
     expect(sm.running).toBe(false);
   });
 
+  it("(e) snoozing twice keeps the original pre-snooze phase; skip returns to it, not to another snooze", async () => {
+    // Mirrors shared/fullscreen.ts's startSnooze(): pause, conditionally capture
+    // the phase being left (never overwrite pendingBreakPhase with "snooze"
+    // itself), re-anchor at SNOOZE_DURATION, restart. Regression for the bug
+    // fixed alongside commit 5a4936b: before that guard, a second snooze while
+    // already snoozing corrupted pendingBreakPhase to "snooze", so the next
+    // skip re-entered fullscreen into another snooze instead of the real break.
+    const { sm, fsState } = makeMachine();
+    sm.phase = PHASE_SHORT;
+    sm.remainingSec = 300;
+    await sm.start();
+    vi.advanceTimersByTime(5000);
+
+    if (sm.phase !== "snooze") fsState.pendingBreakPhase = sm.phase;
+    sm.pause("switch");
+    sm.phase = "snooze";
+    sm.remainingSec = 120;
+    await sm.start();
+
+    if (sm.phase !== "snooze") fsState.pendingBreakPhase = sm.phase;
+    sm.pause("switch");
+    sm.phase = "snooze";
+    sm.remainingSec = 120;
+    await sm.start();
+    expect(fsState.pendingBreakPhase).toBe(PHASE_SHORT);
+
+    await sm.endPhase();
+    expect(sm.phase).toBe(PHASE_SHORT);
+    expect(fsState.pendingBreakPhase).toBeNull();
+  });
+
   it("stopwatch (Other) counts up from its anchor instead of down", async () => {
     const { sm } = makeMachine();
     sm.phase = PHASE_OTHER;
