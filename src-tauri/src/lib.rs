@@ -5,7 +5,7 @@ mod state;
 mod stats;
 
 use ipc::commands::{
-    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings,
+    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings, get_version_info,
     is_cursor_over_window, is_modifier_held, media_pause_if_playing,
     media_resume, open_settings_window, pick_sound_file, quit_app,
     save_settings, save_window_size, set_click_through,
@@ -283,6 +283,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             save_settings,
+            get_version_info,
             set_window_size,
             open_settings_window,
             show_main_window,
