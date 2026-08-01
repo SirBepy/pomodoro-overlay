@@ -1,9 +1,11 @@
+mod bridge;
 mod hotkeys;
 mod ipc;
 mod settings;
 mod state;
 mod stats;
 
+use bridge::report_timer_state;
 use ipc::commands::{
     disable_keep_awake, enable_keep_awake, get_corner_position, get_settings, get_version_info,
     is_cursor_over_window, is_modifier_held, media_pause_if_playing,
@@ -216,6 +218,15 @@ pub fn run() {
             handle.manage(DndState(std::sync::Mutex::new(None)));
             handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
 
+            let bridge_state = bridge::new_state();
+            let bridge_tx = bridge_state.0.clone();
+            handle.manage(bridge_state);
+            tauri::async_runtime::spawn(bridge::run_server(
+                handle.clone(),
+                bridge_tx,
+                bridge::generate_token(),
+            ));
+
             let now_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as i64)
@@ -308,6 +319,7 @@ pub fn run() {
             get_stats_range,
             reset_stats,
             heartbeat_stats,
+            report_timer_state,
             tauri_kit_settings::kit_copy_logs,
             tauri_kit_settings::kit_reset_settings,
         ])

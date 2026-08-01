@@ -85,7 +85,24 @@ const sm = new TimerStateMachine({
   render: () => render(),
   applyPhaseClass: () => applyPhaseClass(),
   syncClickThrough: () => syncClickThrough(),
+  reportState: () => reportState(),
 });
+
+// Widget bridge: push the current snapshot to the Rust-side cache on every
+// transition. anchor_ms/anchor_remaining_sec mirror the tick() math in
+// timer-state.ts so the external client can compute live remaining itself.
+function reportState() {
+  invoke("report_timer_state", {
+    snapshot: {
+      phase: sm.phase,
+      running: sm.running,
+      anchor_ms: sm.running ? sm.intervalStartMs : Date.now(),
+      anchor_remaining_sec: sm.running ? sm.intervalStartRemainingSec : sm.remainingSec,
+      reported_at_ms: Date.now(),
+      work_sessions_completed: sm.workSessionsCompleted,
+    },
+  }).catch(() => {});
+}
 
 function saveState() {
   if (sm.phase === PHASE_SNOOZE) return;
@@ -232,6 +249,7 @@ async function init() {
   initSounds(() => settings);
   sm.remainingSec = phaseDuration(sm.phase);
   const shouldResume = loadState();
+  reportState(); // seed the bridge cache before any transition can report it
   ({ syncClickThrough, applyVisibility } = setupVisibility({
     getSettings: () => settings,
     getRunning: () => sm.running,
@@ -282,6 +300,29 @@ async function init() {
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
   await listen("hotkey-snooze", snooze);
+  await listen("bridge-command", (event) => {
+    const { action, phase } = event.payload;
+    switch (action) {
+      case "start":
+        sm.start().catch(() => {});
+        break;
+      case "pause":
+        sm.pause();
+        break;
+      case "skip":
+        sm.endPhase().catch(() => {});
+        break;
+      case "snooze":
+        snooze();
+        break;
+      case "meeting-toggle":
+        meetingPolicy.forceToggle();
+        break;
+      case "switch-phase":
+        if (phase) sm.switchPhase(phase);
+        break;
+    }
+  });
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);

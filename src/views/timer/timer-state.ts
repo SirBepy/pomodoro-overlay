@@ -57,6 +57,8 @@ export interface TimerDeps {
   render: () => void;
   applyPhaseClass: () => void;
   syncClickThrough: () => void;
+  /** Widget bridge: reports the current snapshot to the Rust-side cache. */
+  reportState?: () => void;
 }
 
 export class TimerStateMachine {
@@ -146,6 +148,7 @@ export class TimerStateMachine {
       this.tickHandle = setInterval(() => this.tick(), 1000);
       this.deps.syncClickThrough();
       this.deps.render();
+      this.deps.reportState?.();
     } finally {
       this.starting = false;
     }
@@ -180,6 +183,7 @@ export class TimerStateMachine {
     }
     this.deps.syncClickThrough();
     this.deps.render();
+    this.deps.reportState?.();
   }
 
   // ── Phase switching ────────────────────────────────────────
@@ -212,6 +216,7 @@ export class TimerStateMachine {
     this.remainingSec = this.deps.phaseDuration(this.phase);
     this.deps.applyPhaseClass();
     this.deps.render();
+    this.deps.reportState?.();
   }
 
   /** Internal phase switch without fullscreen/snooze side effects. */
@@ -222,6 +227,7 @@ export class TimerStateMachine {
     this.remainingSec = this.deps.phaseDuration(this.phase);
     this.deps.applyPhaseClass();
     this.deps.render();
+    this.deps.reportState?.();
   }
 
   // ── Phase end (auto-advance / skip) ────────────────────────
