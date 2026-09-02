@@ -18,7 +18,7 @@ use ipc::stats::{
     append_stats_event, close_open_stats_event, get_stats_range, heartbeat_stats, reset_stats,
 };
 use settings::{Settings, SettingsState};
-use state::{DndState, PausedSessionsState};
+use state::{DndState, FullscreenState, HostSuppressionState, PausedSessionsState};
 use stats::StatsState;
 use std::sync::Mutex;
 use tauri::{
@@ -89,6 +89,11 @@ fn dimmed_icon(icon: &Image) -> Image<'static> {
 /// side effects (keep-awake, etc.), and dims the tray icon while hidden. Shared
 /// by the tray left-click and the show/hide global hotkey so both behave alike.
 pub fn toggle_main_visibility(app: &AppHandle) {
+    // Dead while a widget host owns the compact surface, so the tray icon also
+    // never dims into looking like the app is off while it is really running.
+    if bridge::compact_suppressed(app) {
+        return;
+    }
     let Some(w) = app.get_webview_window("main") else { return };
     let visible = w.is_visible().unwrap_or(false);
     if visible {
@@ -153,6 +158,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if bridge::compact_suppressed(app) {
+                return;
+            }
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
@@ -217,6 +225,8 @@ pub fn run() {
             handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
             handle.manage(DndState(std::sync::Mutex::new(None)));
             handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
+            handle.manage(HostSuppressionState(std::sync::Mutex::new(None)));
+            handle.manage(FullscreenState(std::sync::Mutex::new(false)));
 
             let bridge_state = bridge::new_state();
             let bridge_tx = bridge_state.0.clone();

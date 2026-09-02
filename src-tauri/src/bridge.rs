@@ -2,6 +2,7 @@
 //! external local app (taskbar widget host) can read live timer state and
 //! send commands. No HTTP/WS - just plain TCP, since the consumer is a small
 //! trusted local process.
+use crate::state::{FullscreenState, HostSuppressionState};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
@@ -142,14 +143,65 @@ async fn handle_client(
     loop {
         match lines.next_line().await {
             Ok(Some(l)) => dispatch_command(&app, &l),
-            _ => return,
+            _ => break,
         }
     }
+    // One mechanism covers the host quitting, crashing and being killed alike,
+    // so suppression can never outlive the connection that asked for it.
+    set_compact_suppression(&app, false);
 }
 
 fn dispatch_command(app: &AppHandle, line: &str) {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { return };
     let Some(cmd) = v.get("cmd").and_then(|c| c.as_str()) else { return };
+    // Handled here, not forwarded: every show/hide site is Rust-side.
+    // `suppress_fullscreen` is ignored outright, nothing may hide the break view.
+    if cmd == "host_overlay" {
+        let on = v.get("suppress_compact").and_then(|s| s.as_bool()).unwrap_or(false);
+        set_compact_suppression(app, on);
+        return;
+    }
     let phase = v.get("phase").and_then(|p| p.as_str());
     let _ = app.emit("bridge-command", json!({ "action": cmd, "phase": phase }));
+}
+
+/// True while a connected widget host owns the compact surface. Every site that
+/// would show the corner window checks this; the fullscreen path never does.
+pub(crate) fn compact_suppressed(app: &AppHandle) -> bool {
+    app.try_state::<HostSuppressionState>()
+        .and_then(|s| s.0.lock().ok().map(|g| g.is_some()))
+        .unwrap_or(false)
+}
+
+fn is_fullscreen(app: &AppHandle) -> bool {
+    app.try_state::<FullscreenState>()
+        .and_then(|s| s.0.lock().ok().map(|g| *g))
+        .unwrap_or(false)
+}
+
+/// Applies the host's `suppress_compact`. Idempotent: the host resends the same
+/// value on each of its own settings saves, so this is a state, not an event.
+pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
+    // Resolved before the suppression lock is taken, so the two are never held
+    // at once and no lock order exists to get wrong.
+    let fullscreen = is_fullscreen(app);
+    let Some(win) = app.get_webview_window("main") else { return };
+    let Some(state) = app.try_state::<HostSuppressionState>() else { return };
+    let Ok(mut guard) = state.0.lock() else { return };
+    match (on, guard.is_some()) {
+        (true, false) => {
+            *guard = Some(win.is_visible().unwrap_or(true));
+            // Deliberately not toggle_main_visibility's path: that dims the tray
+            // icon, and being hosted elsewhere is not the user hiding the app.
+            if !fullscreen {
+                let _ = win.hide();
+            }
+        }
+        (false, true) => {
+            if guard.take().unwrap_or(true) && !fullscreen {
+                let _ = win.show();
+            }
+        }
+        _ => {}
+    }
 }

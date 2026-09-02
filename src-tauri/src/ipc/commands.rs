@@ -1,5 +1,5 @@
 use crate::settings::{self, Settings, SettingsState};
-use crate::state::PausedSessionsState;
+use crate::state::{FullscreenState, PausedSessionsState};
 use crate::{apply_autostart, compute_corner_position, resize_and_anchor};
 use serde::Serialize;
 use tauri::{
@@ -111,7 +111,12 @@ pub fn open_settings_window(app: AppHandle, route: Option<String>) -> Result<(),
 
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
+    // Suppression gates the window only; the tray refresh below still runs.
+    let target = match crate::bridge::compact_suppressed(&app) {
+        true => None,
+        false => app.get_webview_window("main"),
+    };
+    if let Some(w) = target {
         // Show without stealing keyboard focus: this fires on phase transitions
         // (incl. the fullscreen break) and grabbing focus would capture the user's
         // next keystroke (e.g. Space pausing the timer mid-typing). The overlay is
@@ -245,6 +250,11 @@ pub fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String>
 #[tauri::command]
 pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), String> {
     log::info!("fullscreen: {fullscreen}");
+    if let Some(fs) = app.try_state::<FullscreenState>() {
+        if let Ok(mut g) = fs.0.lock() {
+            *g = fullscreen;
+        }
+    }
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
@@ -296,6 +306,10 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
         let (w, h) = settings.expanded_size();
         resize_and_anchor(&win, &settings, w, h).map_err(|e| e.to_string())?;
         let _ = win.set_always_on_top(settings.always_on_top);
+        // Suppressed, the compact surface is the host's, so this returns to hidden.
+        if crate::bridge::compact_suppressed(&app) {
+            let _ = win.hide();
+        }
     }
     Ok(())
 }
