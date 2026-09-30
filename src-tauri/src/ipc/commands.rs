@@ -309,6 +309,21 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
         // Suppressed, the compact surface is the host's, so this returns to hidden.
         if crate::bridge::compact_suppressed(&app) {
             let _ = win.hide();
+            // The fullscreen branch shows via raw ShowWindow, which tao never
+            // records: its visible flag is still false from the suppression
+            // hide, so win.hide() diffs to nothing and never sends SW_HIDE.
+            #[cfg(target_os = "windows")]
+            {
+                use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                use windows_sys::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+                if let Ok(handle) = win.window_handle() {
+                    if let RawWindowHandle::Win32(h) = handle.as_raw() {
+                        unsafe {
+                            ShowWindow(h.hwnd.get() as *mut std::ffi::c_void, SW_HIDE);
+                        }
+                    }
+                }
+            }
         }
     }
     Ok(())
