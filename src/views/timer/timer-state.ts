@@ -70,6 +70,13 @@ export class TimerStateMachine {
   tickHandle: ReturnType<typeof setInterval> | null = null;
   workSessionsCompleted = 0;
   musicPausedByApp = false;
+  /**
+   * pause()'s media_pause_if_playing call, which sets musicPausedByApp only once
+   * it resolves. start() awaits it: deciding before it lands either skips the
+   * resume, or fires a second pause call whose empty result overwrites the
+   * Rust-side list of paused sessions, so the later resume has nothing to play.
+   */
+  private pendingMusicPause: Promise<void> | null = null;
   dndEnabledByApp = false;
   /** Wall-clock when the current run-interval began. */
   intervalStartMs = 0;
@@ -115,6 +122,7 @@ export class TimerStateMachine {
       if (this.phase === PHASE_WORK && this.deps.fsState.isOverlayFullscreen) {
         this.deps.exitOverlayFullscreen();
       }
+      await this.pendingMusicPause;
       const pmob = settings?.pause_music_on_break;
       if (pmob === "on_break" || pmob === "not_running_focused") {
         if (this.phase === PHASE_WORK && this.musicPausedByApp) {
@@ -174,7 +182,7 @@ export class TimerStateMachine {
       this.phase === PHASE_WORK &&
       !this.musicPausedByApp
     ) {
-      this.deps
+      this.pendingMusicPause = this.deps
         .invoke("media_pause_if_playing")
         .then((paused) => {
           if (paused) this.musicPausedByApp = true;

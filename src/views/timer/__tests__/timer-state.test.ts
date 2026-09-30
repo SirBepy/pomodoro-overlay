@@ -162,6 +162,52 @@ describe("TimerStateMachine", () => {
     expect(fsState.pendingBreakPhase).toBeNull();
   });
 
+  describe("music pause/resume while media_pause_if_playing is still in flight", () => {
+    // The Rust call enumerates and pauses media sessions, so it resolves well
+    // after pause() returns. Hold it open to reproduce that window.
+    function holdMusicPause(deps: ReturnType<typeof makeMachine>["deps"]) {
+      let resolvePause!: (paused: boolean) => void;
+      deps.invoke.mockImplementation((cmd: string) =>
+        cmd === "media_pause_if_playing"
+          ? new Promise((r) => { resolvePause = r; })
+          : Promise.resolve(undefined),
+      );
+      return (paused: boolean) => resolvePause(paused);
+    }
+    const calls = (deps: ReturnType<typeof makeMachine>["deps"], cmd: string) =>
+      deps.invoke.mock.calls.filter(([c]) => c === cmd).length;
+
+    it("resumes music when focus is restarted before the pause call lands", async () => {
+      const { sm, deps } = makeMachine({ pause_music_on_break: "not_running_focused" });
+      await sm.start();
+      const finishPause = holdMusicPause(deps);
+      sm.pause();
+      const started = sm.start();
+      finishPause(true);
+      await started;
+      expect(calls(deps, "media_resume")).toBe(1);
+      expect(sm.musicPausedByApp).toBe(false);
+    });
+
+    it("an auto-started break does not re-pause (and wipe) what the focus end just paused", async () => {
+      const { sm, deps } = makeMachine({
+        pause_music_on_break: "not_running_focused",
+        auto_start_break: true,
+      });
+      sm.remainingSec = 1;
+      await sm.start();
+      const finishPause = holdMusicPause(deps);
+      const ended = sm.endPhase(true);
+      await vi.advanceTimersByTimeAsync(0);
+      finishPause(true);
+      await ended;
+      expect(sm.phase).toBe(PHASE_SHORT);
+      expect(sm.running).toBe(true);
+      expect(calls(deps, "media_pause_if_playing")).toBe(1);
+      expect(sm.musicPausedByApp).toBe(true);
+    });
+  });
+
   it("stopwatch (Other) counts up from its anchor instead of down", async () => {
     const { sm } = makeMachine();
     sm.phase = PHASE_OTHER;
