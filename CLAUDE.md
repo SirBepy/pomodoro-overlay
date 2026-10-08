@@ -9,7 +9,7 @@ Deploy: github-actions - release triggered by version bump in package.json (CI s
 
 ## Structure
 
-src/index.html + src/main.ts (timer UI, all phase/state logic), src/settings.html + src/views/settings/ (settings UI; schema.ts drives all fields), src/styles/base.css, src/shared/ (sounds, fullscreen), src/views/timer/ (return-to-corner, timer-edit), src-tauri/src/ (settings.rs, ipc/commands.rs, state.rs)
+src/index.html + src/main.ts (timer UI, all phase/state logic), src/settings.html + src/views/settings/ (settings UI; schema.ts drives all fields), src/styles/base.css, src/shared/ (sounds, fullscreen), src/views/timer/ (return-to-corner, timer-edit), src-tauri/src/ (settings.rs, ipc/{settings,window,media,system,dnd,stats}.rs, state.rs)
 
 ## Commands
 
