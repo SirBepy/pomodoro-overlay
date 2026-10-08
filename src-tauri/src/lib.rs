@@ -6,14 +6,17 @@ mod state;
 mod stats;
 
 use bridge::report_timer_state;
-use ipc::commands::{
-    disable_keep_awake, enable_keep_awake, get_corner_position, get_settings, get_version_info,
-    is_cursor_over_window, is_modifier_held, media_pause_if_playing,
-    media_resume, open_settings_window, pick_sound_file, quit_app,
-    save_settings, save_window_size, set_click_through,
-    set_window_fullscreen, set_window_position, set_window_size, show_main_window, start_resize,
-};
 use ipc::dnd::{disable_dnd, enable_dnd};
+use ipc::media::{media_pause_if_playing, media_resume};
+use ipc::settings::{get_settings, pick_sound_file, save_settings};
+use ipc::system::{
+    disable_keep_awake, enable_keep_awake, get_version_info, is_modifier_held, quit_app,
+};
+use ipc::window::{
+    get_corner_position, is_cursor_over_window, open_settings_window, save_window_size,
+    set_click_through, set_window_fullscreen, set_window_position, set_window_size,
+    show_main_window, start_resize,
+};
 use ipc::stats::{
     append_stats_event, close_open_stats_event, get_stats_range, heartbeat_stats, reset_stats,
 };
