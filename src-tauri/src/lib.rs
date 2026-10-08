@@ -2,8 +2,10 @@ mod bridge;
 mod hotkeys;
 mod ipc;
 mod settings;
+mod setup;
 mod state;
 mod stats;
+mod tray;
 
 use bridge::report_timer_state;
 use ipc::dnd::{disable_dnd, enable_dnd};
@@ -21,15 +23,7 @@ use ipc::stats::{
     append_stats_event, close_open_stats_event, get_stats_range, heartbeat_stats, reset_stats,
 };
 use settings::{Settings, SettingsState};
-use state::{DndState, FullscreenState, HostSuppressionState, PausedSessionsState};
-use stats::StatsState;
-use std::sync::Mutex;
-use tauri::{
-    image::Image,
-    menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow,
-};
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 use tauri_plugin_autostart::ManagerExt;
 
 pub(crate) fn compute_corner_position(
@@ -78,86 +72,6 @@ pub(crate) fn apply_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
-fn dimmed_icon(icon: &Image) -> Image<'static> {
-    let mut rgba = icon.rgba().to_vec();
-    for i in (3..rgba.len()).step_by(4) {
-        rgba[i] = rgba[i] / 2;
-    }
-    Image::new_owned(rgba, icon.width(), icon.height())
-}
-
-/// Toggle the main overlay window between shown and hidden.
-///
-/// Emits `main-window-hidden` / `main-window-shown` so the frontend can run its
-/// side effects (keep-awake, etc.), and dims the tray icon while hidden. Shared
-/// by the tray left-click and the show/hide global hotkey so both behave alike.
-pub fn toggle_main_visibility(app: &AppHandle) {
-    // Dead while a widget host owns the compact surface, so the tray icon also
-    // never dims into looking like the app is off while it is really running.
-    if bridge::compact_suppressed(app) {
-        return;
-    }
-    let Some(w) = app.get_webview_window("main") else { return };
-    let visible = w.is_visible().unwrap_or(false);
-    if visible {
-        ipc::window::hide_main(&w);
-        let _ = app.emit("main-window-hidden", ());
-    } else {
-        let _ = w.show();
-        let _ = w.set_focus();
-        let _ = app.emit("main-window-shown", ());
-    }
-    if let Some(t) = app.tray_by_id("main-tray") {
-        let base = app
-            .default_window_icon()
-            .cloned()
-            .unwrap_or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap());
-        let icon = if visible { dimmed_icon(&base) } else { base };
-        let _ = t.set_icon(Some(icon));
-    }
-}
-
-fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let dashboard_item = MenuItem::with_id(app, "dashboard", "Dashboard", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(
-        app,
-        &[&dashboard_item, &quit],
-    )?;
-
-    let icon: Image = match app.default_window_icon() {
-        Some(i) => i.clone(),
-        None => Image::from_bytes(include_bytes!("../icons/32x32.png"))?,
-    };
-
-    TrayIconBuilder::with_id("main-tray")
-        .icon(icon)
-        .tooltip("Pomodoro Overlay")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "dashboard" => {
-                let _ = open_settings_window(app.clone(), Some("dashboard".into()));
-            }
-            "quit" => {
-                app.exit(0);
-            }
-            _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let tauri::tray::TrayIconEvent::Click {
-                button: tauri::tray::MouseButton::Left,
-                button_state: tauri::tray::MouseButtonState::Up,
-                ..
-            } = event
-            {
-                toggle_main_visibility(tray.app_handle());
-            }
-        })
-        .build(app)?;
-    Ok(())
-}
-
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -180,130 +94,7 @@ pub fn run() {
         .plugin(tauri_kit_updater::plugin())
         .plugin(tauri_kit_meeting::plugin(tauri_kit_meeting::MeetingConfig::default()))
         .plugin(tauri_kit_settings::with_logging())
-        .setup(|app| {
-            let handle = app.handle().clone();
-            let settings = settings::load(&handle);
-            log::info!("app started; version={}", env!("CARGO_PKG_VERSION"));
-            apply_autostart(&handle, settings.autostart);
-            tauri_kit_meeting::set_apps(
-                &handle,
-                settings
-                    .meeting_apps
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect(),
-            );
-            tauri_kit_meeting::set_browsers(
-                &handle,
-                settings
-                    .meeting_browsers
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect(),
-            );
-            hotkeys::register_hotkeys(
-                &handle,
-                None,
-                None,
-                None,
-                None,
-                None,
-                settings.keybind_pause.as_deref(),
-                settings.keybind_skip.as_deref(),
-                settings.keybind_show_hide.as_deref(),
-                settings.keybind_meeting_toggle.as_deref(),
-                settings.keybind_snooze.as_deref(),
-            );
-            if let Some(win) = handle.get_webview_window("main") {
-                let (w, h) = settings.expanded_size();
-                let _ = resize_and_anchor(&win, &settings, w, h);
-                let _ = win.set_always_on_top(settings.always_on_top);
-                let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 100u32)));
-                let _ = win.show();
-                let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
-            }
-            handle.manage(SettingsState(Mutex::new(settings)));
-            handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));
-            handle.manage(DndState(std::sync::Mutex::new(None)));
-            handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
-            handle.manage(HostSuppressionState(std::sync::Mutex::new(None)));
-            handle.manage(FullscreenState(std::sync::Mutex::new(false)));
-
-            let bridge_state = bridge::new_state();
-            let bridge_tx = bridge_state.0.clone();
-            handle.manage(bridge_state);
-            tauri::async_runtime::spawn(bridge::run_server(
-                handle.clone(),
-                bridge_tx,
-                bridge::generate_token(),
-            ));
-
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis() as i64)
-                .unwrap_or(0);
-            stats::close_open_on_startup(&handle, now_ms);
-            {
-                let settings = handle.state::<SettingsState>();
-                let days = settings.0.lock().map(|s| s.stats_retention_days).unwrap_or(30);
-                stats::prune_old_events(&handle, days, now_ms);
-            }
-            #[cfg(target_os = "windows")]
-            {
-                if let Some(p) = app.path().app_local_data_dir().ok().map(|d| d.join("dnd_backup.bin")) {
-                    if p.exists() {
-                        match std::fs::read(&p) {
-                            Ok(blob) if !blob.is_empty() => {
-                                if ipc::dnd::recover_dnd_backup(&blob) {
-                                    log::info!(
-                                        "dnd: recovered registry from prior session backup"
-                                    );
-                                } else {
-                                    log::warn!(
-                                        "dnd: backup recovery failed to write CloudStore blob"
-                                    );
-                                }
-                            }
-                            Ok(_) => log::warn!("dnd: backup file empty; skipping"),
-                            Err(e) => log::warn!("dnd: failed to read backup: {e}"),
-                        }
-                        let _ = std::fs::remove_file(&p);
-                    }
-                }
-            }
-            if let Err(e) = build_tray(&handle) {
-                eprintln!("failed to build tray: {e}");
-            }
-            #[cfg(debug_assertions)]
-            {
-                let dev_handle = handle.clone();
-                std::thread::spawn(move || {
-                    // Wait for Vite to finish starting before we begin watching
-                    std::thread::sleep(std::time::Duration::from_secs(8));
-                    loop {
-                        std::thread::sleep(std::time::Duration::from_secs(2));
-                        let vite_up = |timeout_ms: u64| {
-                            let t = std::time::Duration::from_millis(timeout_ms);
-                            std::net::TcpStream::connect_timeout(&"127.0.0.1:3001".parse().unwrap(), t).is_ok()
-                            || std::net::TcpStream::connect_timeout(&"[::1]:3001".parse().unwrap(), t).is_ok()
-                        };
-                        let alive = vite_up(500);
-                        if !alive {
-                            // Double-check before exiting (Vite may be momentarily restarting)
-                            std::thread::sleep(std::time::Duration::from_secs(3));
-                            let still_dead = !vite_up(500);
-                            if still_dead {
-                                dev_handle.exit(0);
-                                return;
-                            }
-                        }
-                    }
-                });
-            }
-            Ok(())
-        })
+        .setup(setup::setup)
         .invoke_handler(tauri::generate_handler![
             get_settings,
             save_settings,

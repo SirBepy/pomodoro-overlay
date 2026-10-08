@@ -67,7 +67,7 @@ pub fn register_hotkeys(
             let handle = app.clone();
             if let Err(e) = gs.on_shortcut(s, move |_app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
-                    crate::toggle_main_visibility(&handle);
+                    crate::tray::toggle_main_visibility(&handle);
                 }
             }) {
                 log::warn!("hotkeys: register show/hide '{}' failed: {}", s, e);
