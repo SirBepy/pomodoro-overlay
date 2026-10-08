@@ -194,7 +194,7 @@ pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
             // Deliberately not toggle_main_visibility's path: that dims the tray
             // icon, and being hosted elsewhere is not the user hiding the app.
             if !fullscreen {
-                let _ = win.hide();
+                crate::ipc::window::hide_main(&win);
             }
         }
         (false, true) => {

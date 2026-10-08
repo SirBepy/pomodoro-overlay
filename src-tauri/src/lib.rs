@@ -100,7 +100,7 @@ pub fn toggle_main_visibility(app: &AppHandle) {
     let Some(w) = app.get_webview_window("main") else { return };
     let visible = w.is_visible().unwrap_or(false);
     if visible {
-        let _ = w.hide();
+        ipc::window::hide_main(&w);
         let _ = app.emit("main-window-hidden", ());
     } else {
         let _ = w.show();
