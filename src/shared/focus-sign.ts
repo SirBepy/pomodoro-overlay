@@ -58,12 +58,16 @@ export interface PauseTracker {
   wasRunning: boolean;
   /** null = no grace to honor (never ran, or ran outside a sign phase). */
   pausedSince: number | null;
+  /** Phase the last run (or its pause) belonged to. */
+  phase: string | null;
 }
 
 /**
- * Starts the pause grace only when the timer was running in a phase the sign
- * covers. Otherwise a break ending into an idle Focus (auto-start off) would
- * show the sign for the grace on a timer that never started.
+ * Starts the pause grace only for a pause in the same Focus or Stopwatch phase
+ * the timer was running in. The state machine pauses (and renders) BEFORE it
+ * flips the phase, so a switch or skip shows up as a pause in the old phase
+ * followed by an idle timer in the new one; without the phase check that idle
+ * timer would inherit the grace and show the sign for it.
  */
 export function advancePauseTracker(
   prev: PauseTracker,
@@ -71,15 +75,14 @@ export function advancePauseTracker(
   phase: string,
   now: number,
 ): PauseTracker {
+  const covered = phase === PHASE_WORK || phase === PHASE_OTHER;
   if (running) {
-    return { wasRunning: phase === PHASE_WORK || phase === PHASE_OTHER, pausedSince: null };
+    return { wasRunning: covered, pausedSince: null, phase };
   }
-  // A pause seen in a break phase is a run that ended or was switched away
-  // from, and any grace left over from an earlier pause dies with the phase.
-  if (phase !== PHASE_WORK && phase !== PHASE_OTHER) {
-    return { wasRunning: false, pausedSince: null };
+  if (!covered || prev.phase !== phase) {
+    return { wasRunning: false, pausedSince: null, phase };
   }
-  if (prev.wasRunning) return { wasRunning: false, pausedSince: now };
+  if (prev.wasRunning) return { wasRunning: false, pausedSince: now, phase };
   return prev;
 }
 
@@ -96,7 +99,7 @@ interface FocusSignHost {
 }
 
 let _host: FocusSignHost | null = null;
-let tracker: PauseTracker = { wasRunning: false, pausedSince: null };
+let tracker: PauseTracker = { wasRunning: false, pausedSince: null, phase: null };
 let graceTimer: ReturnType<typeof setTimeout> | null = null;
 // Serializes the window commands so a quick on/off/on lands in order.
 let chain: Promise<void> = Promise.resolve();

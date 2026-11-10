@@ -11,15 +11,22 @@ import {
 const ON = { focus_sign_enabled: true };
 
 describe("advancePauseTracker", () => {
-  const idle = { wasRunning: false, pausedSince: null };
+  const idle = { wasRunning: false, pausedSince: null, phase: null };
 
   it("starts the grace when a Focus or Stopwatch run pauses", () => {
     for (const phase of ["work", "other"]) {
       const running = advancePauseTracker(idle, true, phase, 1000);
-      expect(advancePauseTracker(running, false, phase, 5000), phase).toEqual({
-        wasRunning: false,
-        pausedSince: 5000,
-      });
+      expect(advancePauseTracker(running, false, phase, 5000).pausedSince, phase).toBe(5000);
+    }
+  });
+
+  it("grants no grace to the idle timer a tab switch or skip lands on", () => {
+    // pause() renders in the old phase, then the phase flips and renders again.
+    for (const [from, to] of [["work", "other"], ["other", "work"]]) {
+      const running = advancePauseTracker(idle, true, from, 1000);
+      const pausedInOld = advancePauseTracker(running, false, from, 5000);
+      expect(pausedInOld.pausedSince).toBe(5000);
+      expect(advancePauseTracker(pausedInOld, false, to, 5001).pausedSince, `${from}->${to}`).toBeNull();
     }
   });
 
@@ -36,13 +43,13 @@ describe("advancePauseTracker", () => {
   });
 
   it("drops an earlier pause's grace once the phase leaves Focus and Stopwatch", () => {
-    const paused = { wasRunning: false, pausedSince: 5000 };
+    const paused = { wasRunning: false, pausedSince: 5000, phase: "work" };
     const onBreak = advancePauseTracker(paused, false, "short", 6000);
     expect(advancePauseTracker(onBreak, false, "work", 7000).pausedSince).toBeNull();
   });
 
   it("keeps the first pause time while the timer stays paused", () => {
-    const paused = { wasRunning: false, pausedSince: 5000 };
+    const paused = { wasRunning: false, pausedSince: 5000, phase: "work" };
     expect(advancePauseTracker(paused, false, "work", 9000)).toBe(paused);
   });
 });
