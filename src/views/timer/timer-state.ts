@@ -196,7 +196,7 @@ export class TimerStateMachine {
 
   // ── Phase switching ────────────────────────────────────────
   /**
-   * Manually leaving the Other phase (tab click, skip button, skip keybind)
+   * Manually leaving the stopwatch phase (tab click, skip button, skip keybind)
    * means "meeting's over": drop meeting-mode so sounds/fullscreen resume and the
    * next meeting can re-trigger.
    */

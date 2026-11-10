@@ -23,7 +23,9 @@ import {
   exitEditMode as exitEditModeImpl,
   setupTimerEdit,
 } from "./views/timer/timer-edit";
-import { openEvent, closeOpenEvent } from "./shared/stats";
+import { openEvent, closeOpenEvent, getRange } from "./shared/stats";
+import { endOfDay, startOfDay } from "./views/dashboard/rollup";
+import { totalTodayMs, formatElapsedSummary } from "./views/timer/elapsed-summary";
 import { setupVisibility } from "./views/timer/visibility";
 import { setupWindowEvents } from "./views/timer/window-events";
 import { MeetingPolicy } from "./views/timer/meeting-mode";
@@ -163,11 +165,33 @@ function timerIsEditable() {
   return !!(settings?.editable_when_paused && !sm.running && sm.phase !== PHASE_SNOOZE);
 }
 
+// Today's events for the stopwatch hover line. Refetched on stats-updated (every
+// event open/close) and at midnight rollover; the open event's growth between
+// refetches is computed in totalTodayMs, not refetched.
+let todayEvents = [];
+let todayEventsDay = -1;
+
+async function refreshTodayEvents() {
+  const now = Date.now();
+  const dayStart = startOfDay(now);
+  todayEventsDay = dayStart;
+  todayEvents = await getRange(dayStart, endOfDay(now));
+  if (sm.phase === PHASE_OTHER) renderElapsedLine();
+}
+
+function renderElapsedLine() {
+  const el = document.querySelector(".elapsed-line");
+  const now = Date.now();
+  if (startOfDay(now) !== todayEventsDay) refreshTodayEvents();
+  el.textContent = formatElapsedSummary(sm.remainingSec, totalTodayMs(todayEvents, now));
+}
+
 function render() {
   const timerEl = document.querySelector(".timer");
   if (!isEditMode()) {
     timerEl.textContent = fmt(sm.remainingSec);
   }
+  if (sm.phase === PHASE_OTHER) renderElapsedLine();
   timerEl.classList.toggle("timer-editable", timerIsEditable() && !isEditMode());
   $("play").textContent = sm.running ? "PAUSE" : "START";
   $("skip").classList.toggle("visible", sm.running);
@@ -273,6 +297,7 @@ async function init() {
   });
   applyPhaseClass();
   render();
+  refreshTodayEvents();
   if (shouldResume) sm.start();
   setupControls();
   meetingPolicy = new MeetingPolicy({
@@ -286,7 +311,7 @@ async function init() {
     onExit: async () => {
       // Meeting ended (grace) or hotkey-off: apply the configured end action.
       const action = settings?.meeting_end_action ?? "break";
-      if (action === "nothing") return; // keep counting in Other
+      if (action === "nothing") return; // keep counting in the stopwatch
       sm.pause("switch");
       if (action === "break") {
         sm.switchPhase(PHASE_SHORT);
@@ -300,6 +325,7 @@ async function init() {
   await onMeetingChanged((s) => meetingPolicy.onRaw(s.active));
   await listen("hotkey-meeting-toggle", () => meetingPolicy.forceToggle());
   await listen("hotkey-snooze", snooze);
+  await listen("stats-updated", () => refreshTodayEvents());
   await listen("bridge-command", (event) => {
     const { action, phase } = event.payload;
     switch (action) {

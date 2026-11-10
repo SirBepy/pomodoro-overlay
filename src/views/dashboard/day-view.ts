@@ -50,14 +50,14 @@ export interface BreakdownRow {
   pct: number;
 }
 
-/** One row per phase (work / short break / long break / other) plus idle, each
+/** One row per phase (work / short break / long break / stopwatch) plus idle, each
  *  in its real phase color. Drops zero buckets; pct = share of summed buckets. */
 export function breakdownRows(totals: DayTotals): BreakdownRow[] {
   const raw: Array<Omit<BreakdownRow, "pct">> = [
     { key: "work", label: "Work", ms: totals.work_ms, color: PHASE_COLORS.work },
     { key: "short", label: "Short break", ms: totals.short_ms, color: PHASE_COLORS.short },
     { key: "long", label: "Long break", ms: totals.long_ms, color: PHASE_COLORS.long },
-    { key: "other", label: "Other", ms: totals.other_ms, color: PHASE_COLORS.other },
+    { key: "other", label: "Stopwatch", ms: totals.other_ms, color: PHASE_COLORS.other },
     { key: "idle", label: "Idle", ms: totals.idle_ms, color: PHASE_COLORS.idle },
   ];
   const nonZero = raw.filter((r) => r.ms > 0);
@@ -144,7 +144,7 @@ export function pieSlices(
     { key: "work", label: "Work", color: PHASE_COLORS.work, ms: pt.work },
     { key: "short", label: "Short break", color: PHASE_COLORS.short, ms: pt.short },
     { key: "long", label: "Long break", color: PHASE_COLORS.long, ms: pt.long },
-    { key: "other", label: "Other", color: PHASE_COLORS.other, ms: pt.other },
+    { key: "other", label: "Stopwatch", color: PHASE_COLORS.other, ms: pt.other },
     { key: "snooze", label: "Snooze", color: PHASE_COLORS.snooze, ms: pt.snooze },
     { key: "idle", label: "Idle", color: IDLE_COLOR, ms: idle },
     { key: "untracked", label: "Untracked", color: UNTRACKED_COLOR, ms: untracked },

@@ -208,7 +208,7 @@ describe("TimerStateMachine", () => {
     });
   });
 
-  it("stopwatch (Other) counts up from its anchor instead of down", async () => {
+  it("stopwatch (PHASE_OTHER) counts up from its anchor instead of down", async () => {
     const { sm } = makeMachine();
     sm.phase = PHASE_OTHER;
     sm.remainingSec = 0;

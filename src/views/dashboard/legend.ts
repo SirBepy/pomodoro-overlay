@@ -5,7 +5,7 @@ const ITEMS: Array<{ label: string; color: string }> = [
   { label: "Work", color: PHASE_COLORS.work },
   { label: "Short", color: PHASE_COLORS.short },
   { label: "Long", color: PHASE_COLORS.long },
-  { label: "Other", color: PHASE_COLORS.other },
+  { label: "Stopwatch", color: PHASE_COLORS.other },
   { label: "Snooze", color: PHASE_COLORS.snooze },
   { label: "Idle", color: "#f5a623" },
   { label: "Untracked", color: "#3a3a3a" },

@@ -236,7 +236,7 @@ export const settingsSchema = defineSchema({
               kind: "toggle",
               label: "Auto-detect meetings",
               tooltip:
-                "When you're in a call (a browser holding the camera/mic, or a known meeting app holding the mic), block fullscreen breaks, mute sounds, and switch to the Other timer.",
+                "When you're in a call (a browser holding the camera/mic, or a known meeting app holding the mic), block fullscreen breaks, mute sounds, and switch to the Stopwatch.",
             },
             {
               key: "meeting_hide_from_capture",

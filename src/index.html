@@ -22,10 +22,9 @@
     <div class="button-wrapper">
       <div class="top-bar hoverable">
         <div class="phase-tabs">
-          <button class="tab-btn active" data-phase="work">Focus</button>
-          <button class="tab-btn" data-phase="short">Break</button>
-          <button class="tab-btn" data-phase="long">Big Break</button>
-          <button class="tab-btn" data-phase="other">Other</button>
+          <button class="tab-btn active" data-phase="work" title="Focus" aria-label="Focus"><i class="ph ph-brain"></i></button>
+          <button class="tab-btn" data-phase="short" title="Break" aria-label="Break"><i class="ph ph-coffee"></i></button>
+          <button class="tab-btn" data-phase="other" title="Stopwatch" aria-label="Stopwatch"><i class="ph ph-timer"></i></button>
         </div>
       </div>
 
@@ -41,6 +40,7 @@
       </div>
     </div>
     <div class="timer">25:00</div>
+    <div class="elapsed-line hoverable"></div>
   </div>
 
   <div class="resize-handle resize-nw" data-dir="NorthWest"></div>

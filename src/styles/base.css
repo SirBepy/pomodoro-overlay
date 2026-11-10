@@ -122,7 +122,8 @@ select {
   color: #fff;
   padding: clamp(4px, 2vh, 12px) clamp(6px, 3vw, 18px);
   border-radius: clamp(5px, 2vw, 8px);
-  font-size: clamp(11px, 5vw, 18px);
+  font-size: clamp(14px, 6vw, 22px);
+  line-height: 1;
   cursor: pointer;
   font-weight: 500;
   transition:
@@ -179,6 +180,25 @@ select {
   outline: none;
 }
 
+/* Stopwatch only: sits just under the digits (digits bottom = 50% + 0.45 *
+   font-size, from the timer's translateY(-55%) and line-height 1). The
+   .hoverable pattern keeps it hidden until #app.is-hovered. */
+.elapsed-line {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 0.45 * clamp(60px, min(28vw, 28vh), 200px) + 4px);
+  transform: translateX(-50%);
+  font-size: clamp(10px, 3.4vw, 14px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#app.phase-other .elapsed-line {
+  display: block;
+}
+
 @media (max-width: 200px), (max-height: 200px) {
   #app.is-hovered .top-bar {
     opacity: 0;
@@ -191,6 +211,13 @@ select {
   }
   #app.is-paused .timer {
     font-size: clamp(43px, min(19vw, 19vh), 144px);
+  }
+  /* Digits bottom here = 50% + 0.1 * font-size (translateY(-90%)). */
+  #app.is-hovered .elapsed-line {
+    top: calc(50% + 0.1 * clamp(54px, min(24vw, 24vh), 180px) + 4px);
+  }
+  #app.is-hovered.is-paused .elapsed-line {
+    top: calc(50% + 0.1 * clamp(43px, min(19vw, 19vh), 144px) + 4px);
   }
 }
 
