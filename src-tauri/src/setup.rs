@@ -1,16 +1,32 @@
 use crate::settings::{self, SettingsState};
 use crate::state::{
-    DndState, FullscreenState, HostSuppressionState, PausedSessionsState, SignSavedGeometry,
-    SignState,
+    BarSavedGeometry, BarState, DndState, FullscreenState, HostSuppressionState, HostWantsState,
+    PausedSessionsState,
 };
 use crate::stats::{self, StatsState};
 use crate::{apply_autostart, bridge, hotkeys, resize_and_anchor, tray};
 use std::sync::Mutex;
-use tauri::{App, AppHandle, Manager, PhysicalSize};
+use tauri::{App, AppHandle, LogicalSize, Manager, WebviewWindow};
 
-/// The corner window's minimum size; the focus sign lifts it while up (a narrow
-/// side bar is below it) and puts it back after.
-pub(crate) const MIN_WINDOW_SIZE: (u32, u32) = (200, 100);
+/// Smallest box (logical px) where the three phase tabs, the digits and START all
+/// fit at once, so none of them has to hide on hover. The bar form lifts it while
+/// up (a narrow side bar is below it) and puts it back after.
+pub(crate) const MIN_BOX_SIZE: (u32, u32) = (200, 160);
+
+pub(crate) fn apply_box_min_size(win: &WebviewWindow) {
+    let _ = win.set_min_size(Some(LogicalSize::new(
+        MIN_BOX_SIZE.0 as f64,
+        MIN_BOX_SIZE.1 as f64,
+    )));
+}
+
+/// Raises a stored box size (physical px) to the minimum at this display scale.
+/// Sizes saved before the minimum grew would otherwise anchor a corner with a
+/// height the OS then refuses to give the window.
+pub(crate) fn clamp_box_size(w: u32, h: u32, scale: f64) -> (u32, u32) {
+    let floor = |logical: u32| (logical as f64 * scale).round() as u32;
+    (w.max(floor(MIN_BOX_SIZE.0)), h.max(floor(MIN_BOX_SIZE.1)))
+}
 
 pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
@@ -52,7 +68,7 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         let (w, h) = settings.expanded_size();
         let _ = resize_and_anchor(&win, &settings, w, h);
         let _ = win.set_always_on_top(settings.always_on_top);
-        let _ = win.set_min_size(Some(PhysicalSize::new(MIN_WINDOW_SIZE.0, MIN_WINDOW_SIZE.1)));
+        apply_box_min_size(&win);
         let _ = win.show();
         let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
     }
@@ -62,8 +78,9 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
     handle.manage(HostSuppressionState(std::sync::Mutex::new(None)));
     handle.manage(FullscreenState(std::sync::Mutex::new(false)));
-    handle.manage(SignState(std::sync::Mutex::new(false)));
-    handle.manage(SignSavedGeometry(std::sync::Mutex::new(None)));
+    handle.manage(HostWantsState(std::sync::Mutex::new(false)));
+    handle.manage(BarState(std::sync::Mutex::new(false)));
+    handle.manage(BarSavedGeometry(std::sync::Mutex::new(None)));
 
     let bridge_state = bridge::new_state();
     let bridge_tx = bridge_state.0.clone();
@@ -142,4 +159,31 @@ fn spawn_vite_watcher(dev_handle: AppHandle) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stored_size_below_the_minimum_is_raised_to_it() {
+        // The pre-minimum default was 200x100.
+        assert_eq!(clamp_box_size(200, 100, 1.0), MIN_BOX_SIZE);
+    }
+
+    #[test]
+    fn a_larger_stored_size_is_kept() {
+        assert_eq!(clamp_box_size(320, 240, 1.0), (320, 240));
+    }
+
+    #[test]
+    fn the_minimum_scales_with_the_display() {
+        assert_eq!(clamp_box_size(10, 10, 1.5), (300, 240));
+    }
+
+    #[test]
+    fn each_axis_is_clamped_on_its_own() {
+        assert_eq!(clamp_box_size(500, 100, 1.0), (500, MIN_BOX_SIZE.1));
+        assert_eq!(clamp_box_size(100, 500, 1.0), (MIN_BOX_SIZE.0, 500));
+    }
 }

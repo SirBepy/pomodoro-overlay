@@ -14,12 +14,11 @@ import {
   startSnooze,
 } from "./shared/fullscreen";
 import {
-  initFocusSign,
-  evaluateSign,
-  handOffSignToFullscreen,
-  settleSignAfterFullscreen,
-  setupSignDrag,
-} from "./shared/focus-sign";
+  initOverlayBar,
+  evaluateBar,
+  settleBarAfterFullscreen,
+  setupBarDrag,
+} from "./shared/overlay-bar";
 import {
   setupReturnToCorner,
   clearReturnCornerTimer,
@@ -95,7 +94,6 @@ const sm = new TimerStateMachine({
   applyPhaseClass: () => applyPhaseClass(),
   syncClickThrough: () => syncClickThrough(),
   reportState: () => reportState(),
-  prepareFullscreenBreak: handOffSignToFullscreen,
 });
 
 // Widget bridge: push the current snapshot to the Rust-side cache on every
@@ -208,12 +206,15 @@ function render() {
   }
   if (sm.phase === PHASE_OTHER) renderElapsedLine();
   timerEl.classList.toggle("timer-editable", timerIsEditable() && !isEditMode());
-  $("play").textContent = sm.running ? "PAUSE" : "START";
+  // Text and icon both, so the side bar can show the icon alone.
+  $("play-label").textContent = sm.running ? "PAUSE" : "START";
+  $("play-icon").className = `play-icon ph-fill ${sm.running ? "ph-pause" : "ph-play"}`;
+  $("play").setAttribute("aria-label", sm.running ? "Pause" : "Start");
   $("skip").classList.toggle("visible", sm.running);
   $("app").classList.toggle("is-paused", !sm.running);
   renderSnoozeButton();
   applyVisibility();
-  evaluateSign();
+  evaluateBar();
   saveState();
 }
 
@@ -295,10 +296,9 @@ async function init() {
     getRunning: () => sm.running,
     getPhase: () => sm.phase,
   }));
-  initFocusSign({
+  initOverlayBar({
     getSettings: () => settings,
     getPhase: () => sm.phase,
-    getRunning: () => sm.running,
     isFullscreen: () => fsState.isOverlayFullscreen,
     getTodayTotalMs: () => totalTodayMs(todayEvents, Date.now()),
     refreshClickThrough: () => {
@@ -307,7 +307,7 @@ async function init() {
     },
   });
   initFullscreen({
-    onFullscreenEnter: settleSignAfterFullscreen,
+    onFullscreenEnter: settleBarAfterFullscreen,
     getSettings: () => settings,
     getPhase: () => sm.phase,
     setPhase: (p) => { sm.phase = p; },
@@ -321,9 +321,9 @@ async function init() {
     refreshClickThrough: () => {
       applyVisibility();
       syncClickThrough();
-      // Runs after exitOverlayFullscreen's resize_and_anchor, so a sign that
-      // should be back up is placed against the restored corner.
-      evaluateSign();
+      // Runs after exitOverlayFullscreen's resize_and_anchor, so a bar that
+      // should be back up is placed against the restored box.
+      evaluateBar();
     },
   });
   applyPhaseClass();
@@ -383,7 +383,7 @@ async function init() {
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
-  await setupSignDrag();
+  await setupBarDrag();
   await setupWindowEvents({
     getRunning: () => sm.running,
     pause: (endedBy) => sm.pause(endedBy),

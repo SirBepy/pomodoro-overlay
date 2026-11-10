@@ -59,8 +59,6 @@ export interface TimerDeps {
   syncClickThrough: () => void;
   /** Widget bridge: reports the current snapshot to the Rust-side cache. */
   reportState?: () => void;
-  /** Runs just before a focus session hands over to the fullscreen break. */
-  prepareFullscreenBreak?: () => void;
 }
 
 export class TimerStateMachine {
@@ -292,15 +290,10 @@ export class TimerStateMachine {
     } else {
       next = PHASE_WORK;
     }
-    const goesFullscreen =
-      ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active;
-    // Before the phase flips: the re-render below would otherwise take the focus
-    // sign down and restore the corner, flashing it before the break opens.
-    if (goesFullscreen) this.deps.prepareFullscreenBreak?.();
     this.setPhaseInternal(next);
     this.deps.invoke("show_main_window").catch(() => {});
 
-    if (goesFullscreen) {
+    if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active) {
       await this.deps.enterOverlayFullscreen();
       if (settings.auto_start_break) await this.start();
     } else {
@@ -312,4 +305,17 @@ export class TimerStateMachine {
       if (shouldAutoStart) await this.start();
     }
   }
+}
+
+/**
+ * A settings save re-seeds a paused timer only when its phase length changed.
+ * Other saves (a bar drag persisting its edge, any toggle) must leave a paused
+ * 12:00 or a paused stopwatch alone.
+ */
+export function settingsChangeResetsTimer(
+  wasRunning: boolean,
+  durationBefore: number,
+  durationAfter: number,
+): boolean {
+  return !wasRunning && durationBefore !== durationAfter;
 }

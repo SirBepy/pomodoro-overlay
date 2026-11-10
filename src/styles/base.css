@@ -206,41 +206,25 @@ select {
   display: block;
 }
 
+/* Small box: the "this run / total" line would land on the START button, so on
+   hover the total takes the digits' place and "this run" drops to a pill. The
+   minimum window size keeps the tabs, digits and START all visible, so nothing
+   else changes here. The real .timer stays in the layout at opacity 0 (not
+   display:none) so clicking it still starts the paused-edit; while editing, the
+   total steps aside. */
 @media (max-width: 200px), (max-height: 200px) {
-  #app.is-hovered .top-bar {
-    opacity: 0;
-    max-height: 0;
-    pointer-events: none;
-  }
-  #app.is-hovered .timer,
-  #app.is-hovered .timer-total {
-    transform: translate(-50%, -90%);
-    font-size: clamp(54px, min(24vw, 24vh), 180px);
-  }
-  #app.is-paused .timer,
-  #app.is-paused .timer-total {
-    font-size: clamp(43px, min(19vw, 19vh), 144px);
-  }
-
-  /* Stopwatch hover: the total takes the digits' place and "this run" drops to
-     the small line. The real .timer stays in the layout at opacity 0 (not
-     display:none) so clicking it still starts the paused-edit; while editing,
-     the total steps aside. */
-  body:not(.is-focus-sign) #app.is-hovered.phase-other .timer:not(.timer-editing) {
+  body:not(.is-bar) #app.is-hovered.phase-other .timer:not(.timer-editing) {
     opacity: 0;
   }
-  body:not(.is-focus-sign) #app.is-hovered.phase-other:not(:has(.timer-editing)) .timer-total {
+  body:not(.is-bar) #app.is-hovered.phase-other:not(:has(.timer-editing)) .timer-total {
     display: flex;
   }
   #app.phase-other .elapsed-sep,
   #app.phase-other .elapsed-total {
     display: none;
   }
-  /* Digits bottom = 50% + 0.1 * font-size (translateY(-90%)). The START button
-     sits under the digits here, so the pill keeps the white text readable where
-     it overlaps the white button. */
+  /* The pill overlaps the white START button, so it keeps the white text readable. */
   #app.phase-other .elapsed-line {
-    top: calc(50% + 0.1 * clamp(54px, min(24vw, 24vh), 180px) + 4px);
     padding: 1px 7px;
     /* .hoverable turns pointer events on when hovered; the pill overlaps the
        START/PAUSE button and must not eat its clicks. */
@@ -248,35 +232,26 @@ select {
     border-radius: 999px;
     background: rgba(0, 0, 0, 0.4);
   }
-  #app.is-paused.phase-other .elapsed-line {
-    top: calc(50% + 0.1 * clamp(43px, min(19vw, 19vh), 144px) + 4px);
-  }
 }
 
-/* ── Focus sign (edge bar / corner box) ──
-   The window is resized by Rust; this restyles the one #app into it.
-   Busy red regardless of phase: the stopwatch green would read as "available".
-   Specificity (1,1,1) beats the .phase-* custom-property rules. */
+/* ── Bar form (overlay_form "bar") ──
+   The window is resized by Rust; this restyles the one #app into an edge strip.
+   Phase colours stay: --bg comes from .phase-* exactly as in the box. The same
+   tabs and buttons are reused, laid out per body[data-bar-layout]. */
 
-.sign-icon,
-.sign-meta {
+.bar-meta,
+.play-icon {
   display: none;
 }
 
-/* Draggable only while the click-through modifier is held: otherwise the whole
-   window ignores the mouse. */
-body.is-focus-sign {
-  -webkit-app-region: drag;
-}
-
-body.is-focus-sign .resize-handle,
-body.is-focus-sign .button-wrapper,
-body.is-focus-sign #app .elapsed-line {
+body.is-bar .resize-handle,
+body.is-bar #app .elapsed-line,
+body.is-bar #app .timer-total,
+body.is-bar #snooze {
   display: none;
 }
 
-body.is-focus-sign #app {
-  --bg: #ba4949;
+body.is-bar #app {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -285,18 +260,12 @@ body.is-focus-sign #app {
   box-shadow: none;
 }
 
-body.is-focus-sign .sign-icon {
-  display: block;
-  line-height: 1;
-  opacity: 0.85;
-}
-
-body.is-focus-sign .sign-meta {
+body.is-bar .bar-meta {
   display: flex;
   align-items: center;
 }
 
-body.is-focus-sign .sign-dot {
+.bar-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -304,69 +273,126 @@ body.is-focus-sign .sign-dot {
   opacity: 0.5;
 }
 
-body.is-focus-sign .sign-label {
+.bar-label {
   font-weight: 600;
   opacity: 0.8;
   white-space: nowrap;
 }
 
-/* #app in the selector outranks the small-window media rules above, which
-   would otherwise shrink or shift the digits on a 100-200px strip. */
-body.is-focus-sign #app .timer {
+/* #app in the selector outranks the small-window rules above. */
+body.is-bar #app .timer {
   position: static;
   transform: none;
   font-weight: 800;
 }
 
-/* Top/bottom bar: one centered row, icon - time - dot - label. */
-body[data-sign-layout="bar-h"] #app {
-  gap: 4.5vh;
-}
-body[data-sign-layout="bar-h"] .sign-icon {
-  font-size: 40vh;
-}
-body[data-sign-layout="bar-h"] #app .timer {
-  font-size: 52vh;
-}
-body[data-sign-layout="bar-h"] .sign-meta {
-  gap: 4.5vh;
-  font-size: 20vh;
+/* Tabs and buttons float over the bar edges and show on hover like the box's;
+   the collapse animation is vertical, so the bar hides them by opacity alone. */
+body.is-bar .button-wrapper {
+  position: absolute;
+  inset: 0;
+  transform: none;
+  max-height: none;
+  pointer-events: none;
 }
 
-/* Left/right bar: narrow column, icon above the (still horizontal) time. No label. */
-body[data-sign-layout="bar-v"] #app {
-  flex-direction: column;
-  gap: 2vw;
+body.is-bar .hoverable,
+body.is-bar #app.is-hovered .hoverable {
+  max-height: none;
 }
-body[data-sign-layout="bar-v"] .sign-icon {
-  font-size: 26vw;
+
+body.is-bar .top-bar,
+body.is-bar .bottom-bar {
+  width: auto;
 }
-body[data-sign-layout="bar-v"] #app .timer {
-  font-size: 19vw;
-}
-body[data-sign-layout="bar-v"] .sign-meta {
+
+/* Layout spacers of the box's button row; in the bar their flex gaps are dead space. */
+body.is-bar .bottom-bar > span:empty {
   display: none;
 }
 
-/* Corner box: the overlay's own card look, icon pinned top-left, label under the time. */
-body[data-sign-layout="box"] #app {
+body.is-bar .phase-tabs,
+body.is-bar .bottom-bar {
+  padding: 0;
+  flex-wrap: nowrap;
+}
+
+/* Top/bottom bar: time group centered, tabs left, buttons right. Sizes follow the
+   bar thickness (vh) since the window is the bar. */
+body[data-bar-layout="bar-h"] #app {
+  gap: 4.5vh;
+}
+body[data-bar-layout="bar-h"] #app .timer {
+  font-size: 52vh;
+}
+body[data-bar-layout="bar-h"] .bar-meta {
+  gap: 4.5vh;
+  font-size: 20vh;
+}
+body[data-bar-layout="bar-h"] .button-wrapper {
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 0 2.5vw;
+}
+body[data-bar-layout="bar-h"] .phase-tabs,
+body[data-bar-layout="bar-h"] .bottom-bar {
+  gap: 8vh;
+}
+body[data-bar-layout="bar-h"] .tab-btn {
+  font-size: 26vh;
+  padding: 10vh 14vh;
+  border-radius: 10vh;
+}
+body[data-bar-layout="bar-h"] .start-btn {
+  font-size: 20vh;
+  border-radius: 10vh;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+}
+body[data-bar-layout="bar-h"] .start-btn:not(.hidden),
+body[data-bar-layout="bar-h"] .start-btn.hidden.visible {
+  padding: 12vh 22vh;
+}
+
+/* Left/right bar: narrow column. Tabs stacked at the top, the (still
+   horizontal) time in the middle, icon-only buttons at the bottom. No label. */
+body[data-bar-layout="bar-v"] .button-wrapper {
   flex-direction: column;
-  gap: 2vh;
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  justify-content: space-between;
+  padding: 4vw 0;
 }
-body[data-sign-layout="box"] .sign-icon {
-  position: absolute;
-  top: 10px;
-  left: 12px;
-  font-size: 18px;
+body[data-bar-layout="bar-v"] #app .timer {
+  font-size: 17vw;
 }
-body[data-sign-layout="box"] #app .timer {
-  font-size: min(36vh, 15vw);
+body[data-bar-layout="bar-v"] .bar-meta {
+  display: none;
 }
-body[data-sign-layout="box"] .sign-meta {
-  gap: 8px;
-  font-size: 13px;
+body[data-bar-layout="bar-v"] .phase-tabs {
+  flex-direction: column;
+  gap: 6vw;
+}
+body[data-bar-layout="bar-v"] .bottom-bar {
+  gap: 4vw;
+}
+body[data-bar-layout="bar-v"] .tab-btn {
+  font-size: 20vw;
+  padding: 8vw 12vw;
+  border-radius: 8vw;
+}
+body[data-bar-layout="bar-v"] .start-btn {
+  font-size: 20vw;
+  border-radius: 8vw;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.22);
+}
+body[data-bar-layout="bar-v"] .start-btn:not(.hidden),
+body[data-bar-layout="bar-v"] .start-btn.hidden.visible {
+  padding: 8vw 10vw;
+}
+body[data-bar-layout="bar-v"] .play-icon {
+  display: block;
+  line-height: 1;
+}
+body[data-bar-layout="bar-v"] #play-label {
+  display: none;
 }
 
 /* ── Bottom bar ── */

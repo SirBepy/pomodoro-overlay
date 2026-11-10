@@ -9,7 +9,7 @@ mod tray;
 
 use bridge::report_timer_state;
 use ipc::dnd::{disable_dnd, enable_dnd};
-use ipc::focus_sign::{set_focus_sign, snap_focus_sign};
+use ipc::bar::{set_overlay_bar, snap_overlay_bar};
 use ipc::media::{media_pause_if_playing, media_resume};
 use ipc::settings::{get_settings, pick_sound_file, save_settings};
 use ipc::system::{
@@ -58,12 +58,13 @@ pub(crate) fn resize_and_anchor(
     w: u32,
     h: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // The sign is a strip on another monitor edge; every caller here (settings
+    // The bar is a strip on another monitor edge; every caller here (settings
     // save, reset, return-to-corner) would otherwise shrink it back to the corner.
-    // Leaving the sign restores the corner itself.
-    if ipc::focus_sign::sign_active(&win.app_handle()) {
+    // Leaving the bar restores the box itself.
+    if ipc::bar::bar_active(&win.app_handle()) {
         return Ok(());
     }
+    let (w, h) = setup::clamp_box_size(w, h, win.scale_factor().unwrap_or(1.0));
     let (x, y) = compute_corner_position(win, settings, w, h)?;
     win.set_size(PhysicalSize::new(w, h))?;
     win.set_position(PhysicalPosition::new(x, y))?;
@@ -117,8 +118,8 @@ pub fn run() {
             start_resize,
             save_window_size,
             set_window_fullscreen,
-            set_focus_sign,
-            snap_focus_sign,
+            set_overlay_bar,
+            snap_overlay_bar,
             media_pause_if_playing,
             media_resume,
             enable_dnd,

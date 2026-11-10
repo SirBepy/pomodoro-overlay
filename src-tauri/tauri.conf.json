@@ -18,6 +18,8 @@
         "title": "Pomodoro Overlay",
         "width": 280,
         "height": 80,
+        "minWidth": 200,
+        "minHeight": 160,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { fsState } from "../../shared/fullscreen";
+import { barState } from "../../shared/overlay-bar";
 
 const { invoke } = window.__TAURI__.core;
 const { getCurrentWindow } = window.__TAURI__.window;
@@ -83,6 +84,8 @@ export async function setupReturnToCorner(getSettings) {
     const settings = getSettings();
     if (!settings || settings.return_to_corner_seconds === 0) return;
     if (fsState.isOverlayFullscreen) return;
+    // The bar snaps to an edge instead; the box corner does not apply to it.
+    if (barState.active) return;
     scheduleReturnToCorner(settings.return_to_corner_seconds);
   });
 }

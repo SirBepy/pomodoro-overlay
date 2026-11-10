@@ -200,74 +200,61 @@ export const settingsSchema = defineSchema({
           ],
         },
         {
-          title: "Working sign",
+          title: "Overlay form",
           fields: [
             {
-              key: "focus_sign_enabled",
-              kind: "toggle",
-              label: "Show 'working' sign",
-              tooltip:
-                "While Focus or Stopwatch is running, show a red 'working' sign on another screen. Clicks pass through it and it never takes keyboard focus. Hold the click-through key to drag it; it snaps to the nearest edge or corner.",
-            },
-            {
-              key: "focus_sign_form",
+              key: "overlay_form",
               kind: "select",
               label: "Form",
               options: [
-                { value: "bar", label: "Bar along an edge" },
                 { value: "box", label: "Box in a corner" },
+                { value: "bar", label: "Bar along a screen edge" },
               ],
-              visibleWhen: (s) => s.focus_sign_enabled === true,
+              tooltip:
+                "The overlay is either the corner box or an always-visible bar along a screen edge. Drag the bar (hold the click-through key while the timer runs) and it snaps to the nearest edge.",
             },
             {
-              key: "focus_sign_monitor",
+              key: "bar_monitor",
               kind: "select",
-              label: "Monitor",
+              label: "Bar monitor",
               options: [
-                { value: "overlay", label: "Same as the timer" },
+                { value: "overlay", label: "Same as the box" },
                 { value: "primary", label: "Primary" },
                 { value: "secondary", label: "Secondary" },
               ],
-              visibleWhen: (s) => s.focus_sign_enabled === true,
+              visibleWhen: (s) => s.overlay_form === "bar",
               tooltip:
-                "Secondary is the first monitor that is not the primary; with only one monitor it falls back to the timer's.",
+                "Secondary is the first monitor that is not the primary; with only one monitor it falls back to the box's.",
             },
             {
-              key: "focus_sign_edge",
+              key: "bar_edge",
               kind: "select",
-              label: "Edge",
+              label: "Bar edge",
               options: [
                 { value: "top", label: "Top" },
                 { value: "bottom", label: "Bottom" },
                 { value: "left", label: "Left" },
                 { value: "right", label: "Right" },
               ],
-              visibleWhen: (s) =>
-                s.focus_sign_enabled === true && s.focus_sign_form !== "box",
+              visibleWhen: (s) => s.overlay_form === "bar",
             },
             {
-              key: "focus_sign_corner",
+              key: "bar_size",
               kind: "select",
-              label: "Corner",
-              options: [
-                { value: "tl", label: "Top left" },
-                { value: "tr", label: "Top right" },
-                { value: "bl", label: "Bottom left" },
-                { value: "br", label: "Bottom right" },
-              ],
-              visibleWhen: (s) =>
-                s.focus_sign_enabled === true && s.focus_sign_form === "box",
-            },
-            {
-              key: "focus_sign_size",
-              kind: "select",
-              label: "Size",
+              label: "Bar size",
               options: [
                 { value: "small", label: "Small" },
                 { value: "medium", label: "Medium" },
                 { value: "large", label: "Large" },
               ],
-              visibleWhen: (s) => s.focus_sign_enabled === true,
+              visibleWhen: (s) => s.overlay_form === "bar",
+            },
+            {
+              key: "hide_when_widget_hosted",
+              kind: "toggle",
+              label: "Hide when placed in Taskbar Widgets",
+              tooltip:
+                "When Pomodoro is placed in the Taskbar Widgets host, hide the overlay (box or bar). Off keeps the overlay up beside the widget.",
             },
           ],
         },

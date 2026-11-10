@@ -68,10 +68,7 @@ pub fn open_settings_window(app: AppHandle, route: Option<String>) -> Result<(),
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
     // Suppression gates the window only; the tray refresh below still runs.
-    // The sign is exempt: the user asked for it, so the host cannot hide it.
-    let target = match crate::bridge::compact_suppressed(&app)
-        && !crate::ipc::focus_sign::sign_active(&app)
-    {
+    let target = match crate::bridge::compact_suppressed(&app) {
         true => None,
         false => app.get_webview_window("main"),
     };
@@ -128,9 +125,9 @@ pub fn save_window_size(app: AppHandle, state: State<'_, SettingsState>) -> Resu
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
-    // The sign is not a corner size, whatever the 90% guard below would say for
-    // a short or narrow strip.
-    if crate::ipc::focus_sign::sign_active(&app) {
+    // The bar is not a box size, whatever the 90% guard below would say for a
+    // short or narrow strip.
+    if crate::ipc::bar::bar_active(&app) {
         return Ok(());
     }
     let size = win.outer_size().map_err(|e| e.to_string())?;
@@ -180,9 +177,9 @@ pub fn get_corner_position(app: AppHandle) -> Result<(i32, i32), String> {
 
 #[tauri::command]
 pub fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
-    // Return-to-corner fires on every move, including a sign drag; it must not
-    // pull the sign back to the corner anchor.
-    if crate::ipc::focus_sign::sign_active(&app) {
+    // Return-to-corner fires on every move, including a bar drag; it must not
+    // pull the bar back to the corner anchor.
+    if crate::ipc::bar::bar_active(&app) {
         return Ok(());
     }
     let win = app
@@ -204,9 +201,9 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
     if fullscreen {
-        // Leaves the sign (if up) and puts the window back on the corner's monitor
-        // first, so the break opens on the overlay's monitor and not the sign's.
-        crate::ipc::focus_sign::hand_off_to_fullscreen(&app, &win);
+        // Leaves the bar (if up) and puts the window back on the box's monitor
+        // first, so the break opens on the overlay's monitor and not the bar's.
+        crate::ipc::bar::hand_off_to_fullscreen(&app, &win);
         let monitor = win
             .current_monitor()
             .map_err(|e| e.to_string())?
@@ -252,6 +249,8 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
         // Suppressed, the compact surface is the host's, so this returns to hidden.
         if crate::bridge::compact_suppressed(&app) {
             hide_main(&win);
+        } else {
+            crate::ipc::bar::return_from_fullscreen(&app, &win);
         }
     }
     Ok(())

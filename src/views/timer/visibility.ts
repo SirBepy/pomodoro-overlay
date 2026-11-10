@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { PHASE_SNOOZE, fsState } from "../../shared/fullscreen";
-import { signState } from "../../shared/focus-sign";
 
 const { invoke } = window.__TAURI__.core;
 
@@ -13,10 +12,6 @@ export function setupVisibility({ getSettings, getRunning, getPhase }) {
   let isClickThrough = false;
 
   function clickThroughActive() {
-    // The sign is a notice, not a control: clicks always pass through it, with no
-    // dependence on the running state. The modifier still releases it, and with
-    // modifier "none" it stays click-through for good.
-    if (signState.active) return !modifierHeld;
     const settings = getSettings();
     const mod = settings?.click_through_modifier ?? "none";
     return getRunning() && mod !== "none" && !modifierHeld && !fsState.isOverlayFullscreen;
@@ -31,10 +26,6 @@ export function setupVisibility({ getSettings, getRunning, getPhase }) {
     const fadingForClickThrough = clickThroughActive() && isHovered;
     if (fadingForClickThrough) {
       document.body.style.opacity = "0";
-    } else if (signState.active) {
-      // idle_opacity / fade_when are for the corner widget; the sign must stay
-      // readable from across the room.
-      document.body.style.opacity = "1";
     } else {
       document.body.style.opacity =
         isHovered || !shouldFade ? "1" : String(settings.idle_opacity ?? 0.5);

@@ -34,6 +34,8 @@ pub fn save_settings(
         let _ = resize_and_anchor(&win, &settings, w, h);
         let _ = win.set_always_on_top(settings.always_on_top);
     }
+    // hide_when_widget_hosted may have flipped while a host is connected.
+    crate::bridge::reconcile_suppression(&app);
     apply_autostart(&app, settings.autostart);
     if let Some(win) = app.get_webview_window("main") {
         let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);

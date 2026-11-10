@@ -2,7 +2,8 @@
 //! external local app (taskbar widget host) can read live timer state and
 //! send commands. No HTTP/WS - just plain TCP, since the consumer is a small
 //! trusted local process.
-use crate::state::{FullscreenState, HostSuppressionState};
+use crate::settings::SettingsState;
+use crate::state::{FullscreenState, HostSuppressionState, HostWantsState};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
@@ -155,8 +156,7 @@ fn dispatch_command(app: &AppHandle, line: &str) {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { return };
     let Some(cmd) = v.get("cmd").and_then(|c| c.as_str()) else { return };
     // Handled here, not forwarded: every show/hide site is Rust-side.
-    // `suppress_fullscreen` is ignored outright, nothing may hide the break view
-    // or the focus sign.
+    // `suppress_fullscreen` is ignored outright, nothing may hide the break view.
     if cmd == "host_overlay" {
         let on = v.get("suppress_compact").and_then(|s| s.as_bool()).unwrap_or(false);
         set_compact_suppression(app, on);
@@ -166,31 +166,58 @@ fn dispatch_command(app: &AppHandle, line: &str) {
     let _ = app.emit("bridge-command", json!({ "action": cmd, "phase": phase }));
 }
 
-/// True while a connected widget host owns the compact surface. Every site that
-/// would show the corner window checks this; the fullscreen and focus-sign paths
-/// never do.
+/// True while suppression is applied: a connected widget host owns the compact
+/// surface and `hide_when_widget_hosted` is on. Every site that would show the
+/// overlay (box or bar alike) checks this; the fullscreen path never does.
 pub(crate) fn compact_suppressed(app: &AppHandle) -> bool {
     app.try_state::<HostSuppressionState>()
         .and_then(|s| s.0.lock().ok().map(|g| g.is_some()))
         .unwrap_or(false)
 }
 
-/// True while the break view or the focus sign has the window: both are surfaces
-/// the user asked for, so suppression must neither hide nor re-show them.
-fn owns_screen(app: &AppHandle) -> bool {
-    let fullscreen = app
-        .try_state::<FullscreenState>()
+fn is_fullscreen(app: &AppHandle) -> bool {
+    app.try_state::<FullscreenState>()
         .and_then(|s| s.0.lock().ok().map(|g| *g))
-        .unwrap_or(false);
-    fullscreen || crate::ipc::focus_sign::sign_active(app)
+        .unwrap_or(false)
 }
 
-/// Applies the host's `suppress_compact`. Idempotent: the host resends the same
-/// value on each of its own settings saves, so this is a state, not an event.
+/// Whether the host's request actually hides the overlay: the user can opt out
+/// with `hide_when_widget_hosted`, in which case the overlay stays up beside the
+/// host's widget. Same for the box and the bar.
+fn suppression_applies(host_wants: bool, hide_when_hosted: bool) -> bool {
+    host_wants && hide_when_hosted
+}
+
+/// Records the host's `suppress_compact` request and applies it.
 pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
+    if let Some(wants) = app.try_state::<HostWantsState>() {
+        if let Ok(mut g) = wants.0.lock() {
+            *g = on;
+        }
+    }
+    reconcile_suppression(app);
+}
+
+/// Brings the applied suppression in line with the host's request and the
+/// setting. Idempotent: the host resends the same value on each of its own
+/// settings saves, and the settings save calls this too, so it is a state, not
+/// an event.
+pub(crate) fn reconcile_suppression(app: &AppHandle) {
+    let wants = app
+        .try_state::<HostWantsState>()
+        .and_then(|s| s.0.lock().ok().map(|g| *g))
+        .unwrap_or(false);
+    let hide = app
+        .try_state::<SettingsState>()
+        .and_then(|s| s.0.lock().ok().map(|g| g.hide_when_widget_hosted))
+        .unwrap_or(true);
+    apply_suppression(app, suppression_applies(wants, hide));
+}
+
+fn apply_suppression(app: &AppHandle, on: bool) {
     // Resolved before the suppression lock is taken, so the two are never held
     // at once and no lock order exists to get wrong.
-    let owned = owns_screen(app);
+    let fullscreen = is_fullscreen(app);
     let Some(win) = app.get_webview_window("main") else { return };
     let Some(state) = app.try_state::<HostSuppressionState>() else { return };
     let Ok(mut guard) = state.0.lock() else { return };
@@ -199,15 +226,32 @@ pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
             *guard = Some(win.is_visible().unwrap_or(true));
             // Deliberately not toggle_main_visibility's path: that dims the tray
             // icon, and being hosted elsewhere is not the user hiding the app.
-            if !owned {
+            if !fullscreen {
                 crate::ipc::window::hide_main(&win);
             }
         }
         (false, true) => {
-            if guard.take().unwrap_or(true) && !owned {
+            if guard.take().unwrap_or(true) && !fullscreen {
                 let _ = win.show();
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_host_hides_the_overlay_only_while_the_setting_is_on() {
+        assert!(suppression_applies(true, true));
+        assert!(!suppression_applies(true, false));
+    }
+
+    #[test]
+    fn no_host_request_means_no_suppression_whatever_the_setting() {
+        assert!(!suppression_applies(false, true));
+        assert!(!suppression_applies(false, false));
     }
 }

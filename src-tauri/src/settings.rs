@@ -45,12 +45,11 @@ pub struct Settings {
     pub keybind_meeting_toggle: Option<String>,
     pub meeting_end_action: String,
     pub meeting_break_fullscreen: bool,
-    pub focus_sign_enabled: bool,
-    pub focus_sign_monitor: String,
-    pub focus_sign_edge: String,
-    pub focus_sign_size: String,
-    pub focus_sign_form: String,
-    pub focus_sign_corner: String,
+    pub overlay_form: String,
+    pub bar_monitor: String,
+    pub bar_edge: String,
+    pub bar_size: String,
+    pub hide_when_widget_hosted: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -63,9 +62,9 @@ impl Default for Settings {
             long_break_minutes: 15,
             sessions_before_long_break: 4,
             corner: "tl".to_string(),
-            // Default to the window's minimum size (see set_min_size in lib.rs).
+            // Default to the box's minimum size (setup::MIN_BOX_SIZE).
             width: 200,
-            height: 100,
+            height: 160,
             idle_opacity: 0.3,
             auto_collapse: true,
             sound_enabled: true,
@@ -98,12 +97,11 @@ impl Default for Settings {
             keybind_meeting_toggle: None,
             meeting_end_action: "break".to_string(),
             meeting_break_fullscreen: true,
-            focus_sign_enabled: false,
-            focus_sign_monitor: "secondary".to_string(),
-            focus_sign_edge: "top".to_string(),
-            focus_sign_size: "medium".to_string(),
-            focus_sign_form: "bar".to_string(),
-            focus_sign_corner: "tl".to_string(),
+            overlay_form: "box".to_string(),
+            bar_monitor: "secondary".to_string(),
+            bar_edge: "top".to_string(),
+            bar_size: "medium".to_string(),
+            hide_when_widget_hosted: true,
             kit: KitSettings::default(),
         }
     }

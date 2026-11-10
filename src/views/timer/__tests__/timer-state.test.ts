@@ -4,6 +4,7 @@ import {
   PHASE_WORK,
   PHASE_SHORT,
   PHASE_OTHER,
+  settingsChangeResetsTimer,
 } from "../timer-state";
 
 // Each test drives the machine under fake timers. The four cases below target the
@@ -208,35 +209,6 @@ describe("TimerStateMachine", () => {
     });
   });
 
-  it("hands the focus sign over to the fullscreen break before the phase flips", async () => {
-    // The flip re-renders, which would take the sign down and restore the corner
-    // (flashing it) if the hand-off came after.
-    const { deps } = makeMachine({ fullscreen_on_focus_end: true });
-    const order: string[] = [];
-    const prepare = vi.fn(() => order.push(`prepare:${machine.phase}`));
-    deps.render.mockImplementation(() => order.push(`render:${machine.phase}`));
-    const machine = new TimerStateMachine({ ...deps, prepareFullscreenBreak: prepare });
-    machine.phase = PHASE_WORK;
-    machine.remainingSec = 1;
-    await machine.start();
-    order.length = 0;
-    await machine.endPhase(true);
-    expect(prepare).toHaveBeenCalledTimes(1);
-    expect(order.indexOf("prepare:work")).toBeGreaterThanOrEqual(0);
-    expect(order.indexOf("prepare:work")).toBeLessThan(order.indexOf("render:short"));
-    expect(deps.enterOverlayFullscreen).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not hand the sign over when the break is not fullscreen", async () => {
-    const { deps } = makeMachine({ fullscreen_on_focus_end: false });
-    const prepare = vi.fn();
-    const sm = new TimerStateMachine({ ...deps, prepareFullscreenBreak: prepare });
-    sm.remainingSec = 1;
-    await sm.start();
-    await sm.endPhase(true);
-    expect(prepare).not.toHaveBeenCalled();
-  });
-
   it("stopwatch (PHASE_OTHER) counts up from its anchor instead of down", async () => {
     const { sm } = makeMachine();
     sm.phase = PHASE_OTHER;
@@ -244,5 +216,21 @@ describe("TimerStateMachine", () => {
     await sm.start();
     vi.advanceTimersByTime(4000);
     expect(sm.remainingSec).toBe(4);
+  });
+});
+
+describe("settingsChangeResetsTimer", () => {
+  it("leaves a paused timer alone when the save did not change its phase length", () => {
+    // A bar drag persists bar_edge through a settings save.
+    expect(settingsChangeResetsTimer(false, 1500, 1500)).toBe(false);
+    expect(settingsChangeResetsTimer(false, 0, 0)).toBe(false);
+  });
+
+  it("re-seeds a paused timer whose phase length changed", () => {
+    expect(settingsChangeResetsTimer(false, 1500, 1800)).toBe(true);
+  });
+
+  it("never touches a running timer", () => {
+    expect(settingsChangeResetsTimer(true, 1500, 1800)).toBe(false);
   });
 });

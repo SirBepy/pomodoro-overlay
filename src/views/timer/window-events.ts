@@ -2,6 +2,7 @@
 import { fsState, renderSnoozeButton } from "../../shared/fullscreen";
 import { isEditMode } from "./timer-edit";
 import { getReturnCornerTimer, clearReturnCornerTimer } from "./return-to-corner";
+import { settingsChangeResetsTimer } from "./timer-state";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -50,8 +51,11 @@ export async function setupWindowEvents(deps: WindowEventDeps): Promise<void> {
   await listen("settings-updated", async () => {
     if (isEditMode()) exitEditMode(true);
     const wasRunning = getRunning();
+    const durationBefore = phaseDuration(getPhase());
     setSettings(await invoke("get_settings"));
-    if (!wasRunning) setRemainingSec(phaseDuration(getPhase()));
+    if (settingsChangeResetsTimer(wasRunning, durationBefore, phaseDuration(getPhase()))) {
+      setRemainingSec(phaseDuration(getPhase()));
+    }
     if (getSettings().return_to_corner_seconds === 0 && getReturnCornerTimer()) {
       clearReturnCornerTimer();
     }

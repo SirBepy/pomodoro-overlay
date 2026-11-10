@@ -32,20 +32,18 @@
       <div class="bottom-bar hoverable">
         <span></span>
         <span></span>
-        <button id="play" class="start-btn">START</button>
+        <button id="play" class="start-btn"><i id="play-icon" class="play-icon ph-fill ph-play"></i><span id="play-label">START</span></button>
         <button id="skip" class="start-btn hidden" title="Skip">
           <i class="ph-fill ph-skip-forward"></i>
         </button>
         <button id="snooze" class="start-btn hidden">SNOOZE</button>
       </div>
     </div>
-    <!-- Focus sign: icon + .timer + .sign-meta, laid out per body[data-sign-layout];
-         hidden unless body.is-focus-sign. -->
-    <i class="sign-icon ph-fill ph-brain"></i>
     <div class="timer">25:00</div>
-    <div class="sign-meta">
-      <span class="sign-dot"></span>
-      <span class="sign-label"></span>
+    <!-- Bar form only: the quiet label beside the time; see body.is-bar in base.css. -->
+    <div class="bar-meta">
+      <span class="bar-dot"></span>
+      <span class="bar-label"></span>
     </div>
     <!-- Stopwatch hover: .timer-total (digits swapped in small windows) and
          .elapsed-line (run + total under the digits); see base.css. -->
