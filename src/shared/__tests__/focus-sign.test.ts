@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   shouldShowSign,
   advancePauseTracker,
+  advanceDrop,
+  SIGN_DROP_DEBOUNCE_MS,
   signLayout,
   signLabel,
   formatTotalHM,
@@ -51,6 +53,22 @@ describe("advancePauseTracker", () => {
   it("keeps the first pause time while the timer stays paused", () => {
     const paused = { wasRunning: false, pausedSince: 5000, phase: "work" };
     expect(advancePauseTracker(paused, false, "work", 9000)).toBe(paused);
+  });
+});
+
+describe("advanceDrop", () => {
+  it("waits out the debounce before taking the sign down", () => {
+    const first = advanceDrop(null, true, 1000);
+    expect(first).toEqual({ dropAt: 1000, remove: false });
+    expect(advanceDrop(first.dropAt, true, 1000 + SIGN_DROP_DEBOUNCE_MS - 1).remove).toBe(false);
+    expect(advanceDrop(first.dropAt, true, 1000 + SIGN_DROP_DEBOUNCE_MS).remove).toBe(true);
+  });
+
+  it("forgets the pending drop when the sign is wanted again (meeting enter: pause, flip, start)", () => {
+    const pending = advanceDrop(null, true, 1000);
+    expect(advanceDrop(pending.dropAt, false, 1100)).toEqual({ dropAt: null, remove: false });
+    // The next drop starts its own clock rather than inheriting the old one.
+    expect(advanceDrop(null, true, 5000).remove).toBe(false);
   });
 });
 

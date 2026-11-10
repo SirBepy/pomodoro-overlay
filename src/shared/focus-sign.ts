@@ -1,7 +1,7 @@
 import { PHASE_WORK, PHASE_OTHER } from "../views/timer/timer-state";
 
-// Pause shorter than this keeps the sign up, so a quick pause (or a tab switch
-// that restarts the timer) does not flap the window on and off.
+// Pause shorter than this keeps the sign up, so a quick pause and resume does
+// not flap the window on and off.
 export const SIGN_PAUSE_GRACE_MS = 10_000;
 
 const SIGN_CLASS = "is-focus-sign";
@@ -86,6 +86,26 @@ export function advancePauseTracker(
   return prev;
 }
 
+// A sign that should go away waits this long first. A meeting entering from a
+// live Focus run pauses and flips phase before start() lands (it awaits the stats
+// event), which reads as "not running" for a moment; dropping the window then
+// would flash the corner and re-place the sign.
+export const SIGN_DROP_DEBOUNCE_MS = 400;
+
+/**
+ * Debounces taking the sign down. `dropAt` is when it first should have gone;
+ * `remove` is true once that has held for SIGN_DROP_DEBOUNCE_MS.
+ */
+export function advanceDrop(
+  dropAt: number | null,
+  shouldRemove: boolean,
+  now: number,
+): { dropAt: number | null; remove: boolean } {
+  if (!shouldRemove) return { dropAt: null, remove: false };
+  const since = dropAt ?? now;
+  return { dropAt: since, remove: now - since >= SIGN_DROP_DEBOUNCE_MS };
+}
+
 interface FocusSignHost {
   getSettings: () => any;
   getPhase: () => string;
@@ -100,6 +120,7 @@ interface FocusSignHost {
 
 let _host: FocusSignHost | null = null;
 let tracker: PauseTracker = { wasRunning: false, pausedSince: null, phase: null };
+let dropAt: number | null = null;
 let graceTimer: ReturnType<typeof setTimeout> | null = null;
 // Serializes the window commands so a quick on/off/on lands in order.
 let chain: Promise<void> = Promise.resolve();
@@ -212,6 +233,9 @@ export function evaluateSign() {
     graceTimer = setTimeout(evaluateSign, SIGN_PAUSE_GRACE_MS - pausedMs + 50);
   }
 
+  const drop = advanceDrop(dropAt, !want && signState.active, now);
+  dropAt = drop.dropAt;
+
   if (want) {
     if (signState.active) {
       renderIcon(phase);
@@ -223,8 +247,13 @@ export function evaluateSign() {
       placeSign(phase, signLayout(settings?.focus_sign_form, settings?.focus_sign_edge));
     }
   } else if (signState.active) {
-    signState.active = false;
-    removeSign();
+    if (drop.remove) {
+      dropAt = null;
+      signState.active = false;
+      removeSign();
+    } else {
+      graceTimer = setTimeout(evaluateSign, SIGN_DROP_DEBOUNCE_MS + 30);
+    }
   }
 }
 
