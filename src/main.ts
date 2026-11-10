@@ -32,7 +32,7 @@ import {
 } from "./views/timer/timer-edit";
 import { openEvent, closeOpenEvent, getRange } from "./shared/stats";
 import { endOfDay, startOfDay } from "./views/dashboard/rollup";
-import { totalTodayMs, formatElapsedSummary } from "./views/timer/elapsed-summary";
+import { totalTodayMs, renderElapsedSummary } from "./views/timer/elapsed-summary";
 import { setupVisibility } from "./views/timer/visibility";
 import { setupWindowEvents } from "./views/timer/window-events";
 import { MeetingPolicy } from "./views/timer/meeting-mode";
@@ -188,10 +188,17 @@ async function refreshTodayEvents() {
 }
 
 function renderElapsedLine() {
-  const el = document.querySelector(".elapsed-line");
   const now = Date.now();
   if (startOfDay(now) !== todayEventsDay) refreshTodayEvents();
-  el.textContent = formatElapsedSummary(sm.remainingSec, totalTodayMs(todayEvents, now));
+  renderElapsedSummary(
+    {
+      run: document.querySelector(".elapsed-run"),
+      total: document.querySelector(".elapsed-total"),
+      bigTotal: document.querySelector(".timer-total"),
+    },
+    sm.remainingSec,
+    totalTodayMs(todayEvents, now),
+  );
 }
 
 function render() {

@@ -15,15 +15,41 @@ function pad(n: number): string {
   return n.toString().padStart(2, "0");
 }
 
-function hms(totalSec: number, alwaysHours: boolean): string {
+function runClock(totalSec: number): string {
   const s = Math.max(0, Math.floor(totalSec));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const ss = s % 60;
-  return h > 0 || alwaysHours ? `${h}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
+  return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
 }
 
-/** "this run MM:SS · total today H:MM:SS" (run gains an hour part past 59:59). */
-export function formatElapsedSummary(runSec: number, totalMs: number): string {
-  return `this run ${hms(runSec, false)} · total today ${hms(totalMs / 1000, true)}`;
+/** Hours and minutes only; flooring keeps the text stable within a minute. */
+export function formatTotalHM(totalMs: number): string {
+  const min = Math.max(0, Math.floor(totalMs / 60_000));
+  return `${Math.floor(min / 60)}:${pad(min % 60)}`;
+}
+
+interface TextNode {
+  textContent: string | null;
+}
+
+export interface ElapsedNodes {
+  /** "this run 12:34" (gains an hour part past 59:59) */
+  run: TextNode;
+  /** "total 3:47", the large-window line */
+  total: TextNode;
+  /** "3:47" alone, the big digits swapped in on hover in small windows */
+  bigTotal: TextNode;
+}
+
+function setIfChanged(node: TextNode, text: string) {
+  if (node.textContent !== text) node.textContent = text;
+}
+
+/** The run ticks every second; the total nodes are only written when the minute rolls over. */
+export function renderElapsedSummary(els: ElapsedNodes, runSec: number, totalMs: number) {
+  const hm = formatTotalHM(totalMs);
+  setIfChanged(els.run, `this run ${runClock(runSec)}`);
+  setIfChanged(els.total, `total ${hm}`);
+  setIfChanged(els.bigTotal, hm);
 }

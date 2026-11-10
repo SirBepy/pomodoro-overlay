@@ -150,7 +150,10 @@ select {
 
 /* ── Timer ── */
 
-.timer {
+/* .timer-total mirrors the digits' box so the stopwatch's total can take their
+   place on hover in small windows (see the media query below). */
+.timer,
+.timer-total {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -166,6 +169,10 @@ select {
   white-space: nowrap;
   transition: font-size 0.3s ease, transform 0.3s ease;
   pointer-events: none;
+}
+
+.timer-total {
+  display: none;
 }
 
 .timer.timer-editable {
@@ -205,18 +212,44 @@ select {
     max-height: 0;
     pointer-events: none;
   }
-  #app.is-hovered .timer {
+  #app.is-hovered .timer,
+  #app.is-hovered .timer-total {
     transform: translate(-50%, -90%);
     font-size: clamp(54px, min(24vw, 24vh), 180px);
   }
-  #app.is-paused .timer {
+  #app.is-paused .timer,
+  #app.is-paused .timer-total {
     font-size: clamp(43px, min(19vw, 19vh), 144px);
   }
-  /* No free vertical slot here: the digits slide up over the top bar and the
-     bottom bar's START button sits right under them, so the line would paint
-     white-on-white across the button. */
-  #app.phase-other .elapsed-line {
+
+  /* Stopwatch hover: the total takes the digits' place and "this run" drops to
+     the small line. The real .timer stays in the layout at opacity 0 (not
+     display:none) so clicking it still starts the paused-edit; while editing,
+     the total steps aside. */
+  body:not(.is-focus-sign) #app.is-hovered.phase-other .timer:not(.timer-editing) {
+    opacity: 0;
+  }
+  body:not(.is-focus-sign) #app.is-hovered.phase-other:not(:has(.timer-editing)) .timer-total {
+    display: flex;
+  }
+  #app.phase-other .elapsed-sep,
+  #app.phase-other .elapsed-total {
     display: none;
+  }
+  /* Digits bottom = 50% + 0.1 * font-size (translateY(-90%)). The START button
+     sits under the digits here, so the pill keeps the white text readable where
+     it overlaps the white button. */
+  #app.phase-other .elapsed-line {
+    top: calc(50% + 0.1 * clamp(54px, min(24vw, 24vh), 180px) + 4px);
+    padding: 1px 7px;
+    /* .hoverable turns pointer events on when hovered; the pill overlaps the
+       START/PAUSE button and must not eat its clicks. */
+    pointer-events: none;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  #app.is-paused.phase-other .elapsed-line {
+    top: calc(50% + 0.1 * clamp(43px, min(19vw, 19vh), 144px) + 4px);
   }
 }
 

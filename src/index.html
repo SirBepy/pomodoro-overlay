@@ -47,7 +47,14 @@
       <span class="sign-dot"></span>
       <span class="sign-label"></span>
     </div>
-    <div class="elapsed-line hoverable"></div>
+    <!-- Stopwatch hover: .timer-total (digits swapped in small windows) and
+         .elapsed-line (run + total under the digits); see base.css. -->
+    <div class="timer-total"></div>
+    <div class="elapsed-line hoverable">
+      <span class="elapsed-run"></span>
+      <span class="elapsed-sep"> · </span>
+      <span class="elapsed-total"></span>
+    </div>
   </div>
 
   <div class="resize-handle resize-nw" data-dir="NorthWest"></div>
