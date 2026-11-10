@@ -214,28 +214,60 @@ pub(crate) fn reconcile_suppression(app: &AppHandle) {
     apply_suppression(app, suppression_applies(wants, hide));
 }
 
+#[derive(Debug, PartialEq)]
+enum SuppressionAction {
+    Hide,
+    Show,
+    Nothing,
+}
+
+/// Pure transition: given the requested state and the stored pre-suppression
+/// visibility, returns the new stored value and the window action to take.
+fn suppression_step(
+    on: bool,
+    stored: Option<bool>,
+    visible_now: bool,
+    fullscreen: bool,
+) -> (Option<bool>, SuppressionAction) {
+    match (on, stored) {
+        (true, None) => {
+            let act = if fullscreen { SuppressionAction::Nothing } else { SuppressionAction::Hide };
+            (Some(visible_now), act)
+        }
+        (false, Some(was_visible)) => {
+            let act = if was_visible && !fullscreen {
+                SuppressionAction::Show
+            } else {
+                SuppressionAction::Nothing
+            };
+            (None, act)
+        }
+        (_, s) => (s, SuppressionAction::Nothing),
+    }
+}
+
 fn apply_suppression(app: &AppHandle, on: bool) {
-    // Resolved before the suppression lock is taken, so the two are never held
-    // at once and no lock order exists to get wrong.
+    // Everything that touches the window runs outside the suppression lock:
+    // ShowWindow sends messages synchronously to the window thread, and show/hide
+    // sites on that thread read this same lock via compact_suppressed.
     let fullscreen = is_fullscreen(app);
     let Some(win) = app.get_webview_window("main") else { return };
+    let visible_now = win.is_visible().unwrap_or(true);
     let Some(state) = app.try_state::<HostSuppressionState>() else { return };
-    let Ok(mut guard) = state.0.lock() else { return };
-    match (on, guard.is_some()) {
-        (true, false) => {
-            *guard = Some(win.is_visible().unwrap_or(true));
-            // Deliberately not toggle_main_visibility's path: that dims the tray
-            // icon, and being hosted elsewhere is not the user hiding the app.
-            if !fullscreen {
-                crate::ipc::window::hide_main(&win);
-            }
+    let action = {
+        let Ok(mut guard) = state.0.lock() else { return };
+        let (next, action) = suppression_step(on, *guard, visible_now, fullscreen);
+        *guard = next;
+        action
+    };
+    match action {
+        // Deliberately not toggle_main_visibility's path: that dims the tray
+        // icon, and being hosted elsewhere is not the user hiding the app.
+        SuppressionAction::Hide => crate::ipc::window::hide_main(&win),
+        SuppressionAction::Show => {
+            let _ = win.show();
         }
-        (false, true) => {
-            if guard.take().unwrap_or(true) && !fullscreen {
-                let _ = win.show();
-            }
-        }
-        _ => {}
+        SuppressionAction::Nothing => {}
     }
 }
 
@@ -247,6 +279,25 @@ mod tests {
     fn the_host_hides_the_overlay_only_while_the_setting_is_on() {
         assert!(suppression_applies(true, true));
         assert!(!suppression_applies(true, false));
+    }
+
+    #[test]
+    fn suppressing_remembers_visibility_and_hides_unless_fullscreen() {
+        assert_eq!(suppression_step(true, None, true, false), (Some(true), SuppressionAction::Hide));
+        assert_eq!(suppression_step(true, None, false, true), (Some(false), SuppressionAction::Nothing));
+    }
+
+    #[test]
+    fn releasing_restores_only_a_window_that_was_visible() {
+        assert_eq!(suppression_step(false, Some(true), false, false), (None, SuppressionAction::Show));
+        assert_eq!(suppression_step(false, Some(false), false, false), (None, SuppressionAction::Nothing));
+        assert_eq!(suppression_step(false, Some(true), false, true), (None, SuppressionAction::Nothing));
+    }
+
+    #[test]
+    fn repeated_requests_are_no_ops() {
+        assert_eq!(suppression_step(true, Some(true), false, false), (Some(true), SuppressionAction::Nothing));
+        assert_eq!(suppression_step(false, None, true, false), (None, SuppressionAction::Nothing));
     }
 
     #[test]
