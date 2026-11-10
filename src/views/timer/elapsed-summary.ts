@@ -1,4 +1,5 @@
 import type { StatsEvent } from "../../shared/stats";
+import { formatTotalHM } from "../../shared/focus-sign";
 import { endOfDay, phaseTotals, startOfDay } from "../dashboard/rollup";
 
 /**
@@ -23,11 +24,8 @@ function runClock(totalSec: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
 }
 
-/** Hours and minutes only; flooring keeps the text stable within a minute. */
-export function formatTotalHM(totalMs: number): string {
-  const min = Math.max(0, Math.floor(totalMs / 60_000));
-  return `${Math.floor(min / 60)}:${pad(min % 60)}`;
-}
+// Shared with the focus sign's label so the two totals can never disagree.
+export { formatTotalHM };
 
 interface TextNode {
   textContent: string | null;

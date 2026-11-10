@@ -271,7 +271,7 @@ body.is-focus-sign {
 
 body.is-focus-sign .resize-handle,
 body.is-focus-sign .button-wrapper,
-body.is-focus-sign .elapsed-line {
+body.is-focus-sign #app .elapsed-line {
   display: none;
 }
 
