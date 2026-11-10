@@ -1,3 +1,5 @@
+import { fullscreenAllowed } from "./overlay-bar";
+
 const { invoke } = window.__TAURI__.core;
 
 export const PHASE_SNOOZE = "snooze";
@@ -29,6 +31,7 @@ export function renderSnoozeButton() {
 }
 
 export async function enterOverlayFullscreen() {
+  if (!fullscreenAllowed(_host?.getSettings())) return;
   fsState.isOverlayFullscreen = true;
   document.body.classList.add("is-fullscreen");
   // Rust leaves the bar inside set_window_fullscreen; this only clears its styling.

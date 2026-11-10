@@ -1,9 +1,4 @@
-import {
-  PHASE_WORK,
-  PHASE_SHORT,
-  PHASE_LONG,
-  PHASE_OTHER,
-} from "../views/timer/timer-state";
+import { PHASE_OTHER } from "../views/timer/timer-state";
 import { formatTotalHM } from "../views/timer/elapsed-summary";
 
 // The overlay is either the corner box or, with overlay_form "bar", an edge
@@ -28,6 +23,17 @@ export function wantsBar(
   return settings?.overlay_form === "bar" && !fullscreen;
 }
 
+/**
+ * The bar never goes fullscreen: it just changes colour for a break. Every
+ * fullscreen entry (focus end, meeting end, snooze return) goes through
+ * enterOverlayFullscreen, which asks this.
+ */
+export function fullscreenAllowed(
+  settings: { overlay_form?: string } | null | undefined,
+): boolean {
+  return settings?.overlay_form !== "bar";
+}
+
 export type BarLayout = "bar-h" | "bar-v";
 
 /** Top/bottom bars lay out as a row, side bars as a column. */
@@ -37,25 +43,20 @@ export function barLayout(edge: string | undefined): BarLayout {
 
 /** Everything that, once changed, needs the window re-placed. */
 export function barKey(
-  s: { bar_monitor?: string; bar_edge?: string; bar_size?: string } | null | undefined,
+  s:
+    | { bar_monitor?: string; bar_edge?: string; bar_size?: string; bar_thickness?: number }
+    | null
+    | undefined,
 ): string {
-  return [s?.bar_monitor, s?.bar_edge, s?.bar_size].join("|");
+  return [s?.bar_monitor, s?.bar_edge, s?.bar_size, s?.bar_thickness].join("|");
 }
 
-/** The quiet label next to the time: what the bar says is going on. */
+/**
+ * The text next to the time. Only the Stopwatch has anything to say (the day's
+ * total); the phase colour already says focus vs break, so everything else is "".
+ */
 export function barLabel(phase: string, todayTotalMs: number): string {
-  switch (phase) {
-    case PHASE_SHORT:
-    case PHASE_LONG:
-      return "on break";
-    case PHASE_OTHER:
-      return `total ${formatTotalHM(todayTotalMs)}`;
-    case "snooze":
-      return "snoozed";
-    case PHASE_WORK:
-    default:
-      return "focusing";
-  }
+  return phase === PHASE_OTHER ? `total ${formatTotalHM(todayTotalMs)}` : "";
 }
 
 interface OverlayBarHost {

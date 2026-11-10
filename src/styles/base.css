@@ -239,7 +239,6 @@ select {
    Phase colours stay: --bg comes from .phase-* exactly as in the box. The same
    tabs and buttons are reused, laid out per body[data-bar-layout]. */
 
-.bar-meta,
 .play-icon {
   display: none;
 }
@@ -260,23 +259,15 @@ body.is-bar #app {
   box-shadow: none;
 }
 
-body.is-bar .bar-meta {
-  display: flex;
-  align-items: center;
-}
-
-.bar-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.5;
-}
-
 .bar-label {
+  display: none;
   font-weight: 600;
   opacity: 0.8;
   white-space: nowrap;
+}
+
+body.is-bar .bar-label:not(:empty) {
+  display: block;
 }
 
 /* #app in the selector outranks the small-window rules above. */
@@ -317,40 +308,42 @@ body.is-bar .bottom-bar {
   flex-wrap: nowrap;
 }
 
-/* Top/bottom bar: time group centered, tabs left, buttons right. Sizes follow the
-   bar thickness (vh) since the window is the bar. */
+/* Bar content is a fixed size in px, never vw/vh: the window's thickness is
+   bounded (see THICKNESS_RANGE in bar_geometry.rs) and content that scaled with
+   the window would balloon with it, as the box's does. */
+
+/* Top/bottom bar: time group centered, tabs left, buttons right. */
 body[data-bar-layout="bar-h"] #app {
-  gap: 4.5vh;
+  gap: 10px;
 }
 body[data-bar-layout="bar-h"] #app .timer {
-  font-size: 52vh;
+  font-size: 30px;
 }
-body[data-bar-layout="bar-h"] .bar-meta {
-  gap: 4.5vh;
-  font-size: 20vh;
+body[data-bar-layout="bar-h"] .bar-label {
+  font-size: 13px;
 }
 body[data-bar-layout="bar-h"] .button-wrapper {
   flex-direction: row;
   justify-content: space-between;
-  padding: 0 2.5vw;
+  padding: 0 16px;
 }
 body[data-bar-layout="bar-h"] .phase-tabs,
 body[data-bar-layout="bar-h"] .bottom-bar {
-  gap: 8vh;
+  gap: 6px;
 }
 body[data-bar-layout="bar-h"] .tab-btn {
-  font-size: 26vh;
-  padding: 10vh 14vh;
-  border-radius: 10vh;
+  font-size: 16px;
+  padding: 6px 9px;
+  border-radius: 7px;
 }
 body[data-bar-layout="bar-h"] .start-btn {
-  font-size: 20vh;
-  border-radius: 10vh;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  border-radius: 7px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.22);
 }
 body[data-bar-layout="bar-h"] .start-btn:not(.hidden),
 body[data-bar-layout="bar-h"] .start-btn.hidden.visible {
-  padding: 12vh 22vh;
+  padding: 7px 16px;
 }
 
 /* Left/right bar: narrow column. Tabs stacked at the top, the (still
@@ -358,34 +351,35 @@ body[data-bar-layout="bar-h"] .start-btn.hidden.visible {
 body[data-bar-layout="bar-v"] .button-wrapper {
   flex-direction: column;
   justify-content: space-between;
-  padding: 4vw 0;
+  padding: 12px 0;
 }
 body[data-bar-layout="bar-v"] #app .timer {
-  font-size: 17vw;
+  font-size: 24px;
 }
-body[data-bar-layout="bar-v"] .bar-meta {
+/* Specificity must beat `body.is-bar .bar-label:not(:empty)` above. */
+body.is-bar[data-bar-layout="bar-v"] .bar-label:not(:empty) {
   display: none;
 }
 body[data-bar-layout="bar-v"] .phase-tabs {
   flex-direction: column;
-  gap: 6vw;
+  gap: 6px;
 }
 body[data-bar-layout="bar-v"] .bottom-bar {
-  gap: 4vw;
+  gap: 6px;
 }
 body[data-bar-layout="bar-v"] .tab-btn {
-  font-size: 20vw;
-  padding: 8vw 12vw;
-  border-radius: 8vw;
+  font-size: 16px;
+  padding: 6px 9px;
+  border-radius: 7px;
 }
 body[data-bar-layout="bar-v"] .start-btn {
-  font-size: 20vw;
-  border-radius: 8vw;
+  font-size: 16px;
+  border-radius: 7px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.22);
 }
 body[data-bar-layout="bar-v"] .start-btn:not(.hidden),
 body[data-bar-layout="bar-v"] .start-btn.hidden.visible {
-  padding: 8vw 10vw;
+  padding: 7px 10px;
 }
 body[data-bar-layout="bar-v"] .play-icon {
   display: block;

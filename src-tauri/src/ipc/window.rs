@@ -126,9 +126,9 @@ pub fn save_window_size(app: AppHandle, state: State<'_, SettingsState>) -> Resu
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
     // The bar is not a box size, whatever the 90% guard below would say for a
-    // short or narrow strip.
+    // short or narrow strip; its resize is a thickness change.
     if crate::ipc::bar::bar_active(&app) {
-        return Ok(());
+        return crate::ipc::bar::save_thickness(&app);
     }
     let size = win.outer_size().map_err(|e| e.to_string())?;
     // Guard: never persist a fullscreen/maximized size as the saved corner size.

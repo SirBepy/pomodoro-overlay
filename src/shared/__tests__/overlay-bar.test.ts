@@ -4,6 +4,7 @@ import {
   barLayout,
   barKey,
   barLabel,
+  fullscreenAllowed,
   barState,
   initOverlayBar,
   evaluateBar,
@@ -52,8 +53,9 @@ describe("barKey", () => {
       barKey({ ...base, bar_monitor: "primary" }),
       barKey({ ...base, bar_edge: "left" }),
       barKey({ ...base, bar_size: "large" }),
+      barKey({ ...base, bar_thickness: 80 }),
     ];
-    expect(new Set(keys).size).toBe(4);
+    expect(new Set(keys).size).toBe(5);
   });
 
   it("is stable for unchanged settings", () => {
@@ -62,16 +64,27 @@ describe("barKey", () => {
 });
 
 describe("barLabel", () => {
-  it("says what each phase is", () => {
-    expect(barLabel("work", 0)).toBe("focusing");
-    expect(barLabel("short", 0)).toBe("on break");
-    expect(barLabel("long", 0)).toBe("on break");
-    expect(barLabel("snooze", 0)).toBe("snoozed");
+  it("has no text for focus, breaks or snooze: the colour already says it", () => {
+    for (const p of ["work", "short", "long", "snooze"]) {
+      expect(barLabel(p, 95 * MIN), p).toBe("");
+    }
   });
 
   it("shows the day's total as H:MM in the Stopwatch", () => {
     expect(barLabel("other", 95 * MIN)).toBe("total 1:35");
     expect(barLabel("other", 0)).toBe("total 0:00");
+  });
+});
+
+describe("fullscreenAllowed", () => {
+  it("never in the bar form", () => {
+    expect(fullscreenAllowed({ overlay_form: "bar" })).toBe(false);
+  });
+
+  it("allowed for the box, and for settings not loaded yet", () => {
+    expect(fullscreenAllowed({ overlay_form: "box" })).toBe(true);
+    expect(fullscreenAllowed({})).toBe(true);
+    expect(fullscreenAllowed(null)).toBe(true);
   });
 });
 
@@ -184,9 +197,12 @@ describe("evaluateBar", () => {
     settings.overlay_form = "bar";
     evaluateBar();
     await settle();
+    phase = "other";
+    evaluateBar();
+    expect(label.textContent).toBe("total 0:00");
     phase = "short";
     evaluateBar();
-    expect(label.textContent).toBe("on break");
+    expect(label.textContent).toBe("");
   });
 
   it("clears the styling for the fullscreen break and re-places the bar after", async () => {

@@ -14,6 +14,8 @@ use tauri::{App, AppHandle, LogicalSize, Manager, WebviewWindow};
 pub(crate) const MIN_BOX_SIZE: (u32, u32) = (200, 160);
 
 pub(crate) fn apply_box_min_size(win: &WebviewWindow) {
+    // The bar caps its thickness with a max size that must not outlive it.
+    let _ = win.set_max_size(None::<tauri::PhysicalSize<u32>>);
     let _ = win.set_min_size(Some(LogicalSize::new(
         MIN_BOX_SIZE.0 as f64,
         MIN_BOX_SIZE.1 as f64,

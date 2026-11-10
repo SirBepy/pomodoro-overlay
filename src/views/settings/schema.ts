@@ -186,6 +186,7 @@ export const settingsSchema = defineSchema({
               key: "fullscreen_on_focus_end",
               kind: "toggle",
               label: "Fullscreen during break",
+              visibleWhen: (s) => s.overlay_form !== "bar",
               tooltip:
                 "When a focus session ends, expand the overlay fullscreen for the duration of the break.",
             },
@@ -193,7 +194,8 @@ export const settingsSchema = defineSchema({
               key: "keep_awake_during_fullscreen",
               kind: "toggle",
               label: "Keep PC awake during fullscreen",
-              visibleWhen: (s) => s.fullscreen_on_focus_end === true,
+              visibleWhen: (s) =>
+                s.fullscreen_on_focus_end === true && s.overlay_form !== "bar",
               tooltip:
                 "Block screensaver, sleep, and display-off while the break is fullscreen.",
             },
@@ -334,7 +336,8 @@ export const settingsSchema = defineSchema({
               key: "meeting_break_fullscreen",
               kind: "toggle",
               label: "Fullscreen the post-meeting break",
-              visibleWhen: (s) => s.meeting_end_action === "break",
+              visibleWhen: (s) =>
+                s.meeting_end_action === "break" && s.overlay_form !== "bar",
               tooltip:
                 "When a meeting ends and a short break starts, expand the overlay to fullscreen for the break.",
             },

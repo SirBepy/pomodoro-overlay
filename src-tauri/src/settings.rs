@@ -49,6 +49,8 @@ pub struct Settings {
     pub bar_monitor: String,
     pub bar_edge: String,
     pub bar_size: String,
+    /// Logical px the user dragged the bar to; 0 = use the `bar_size` preset.
+    pub bar_thickness: u32,
     pub hide_when_widget_hosted: bool,
     #[serde(flatten)]
     pub kit: KitSettings,
@@ -101,6 +103,7 @@ impl Default for Settings {
             bar_monitor: "secondary".to_string(),
             bar_edge: "top".to_string(),
             bar_size: "medium".to_string(),
+            bar_thickness: 0,
             hide_when_widget_hosted: true,
             kit: KitSettings::default(),
         }
