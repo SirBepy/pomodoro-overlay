@@ -212,12 +212,11 @@ select {
   #app.is-paused .timer {
     font-size: clamp(43px, min(19vw, 19vh), 144px);
   }
-  /* Digits bottom here = 50% + 0.1 * font-size (translateY(-90%)). */
-  #app.is-hovered .elapsed-line {
-    top: calc(50% + 0.1 * clamp(54px, min(24vw, 24vh), 180px) + 4px);
-  }
-  #app.is-hovered.is-paused .elapsed-line {
-    top: calc(50% + 0.1 * clamp(43px, min(19vw, 19vh), 144px) + 4px);
+  /* No free vertical slot here: the digits slide up over the top bar and the
+     bottom bar's START button sits right under them, so the line would paint
+     white-on-white across the button. */
+  #app.phase-other .elapsed-line {
+    display: none;
   }
 }
 
