@@ -7,7 +7,7 @@ use tauri::{
 };
 
 #[cfg(target_os = "windows")]
-fn win32_hwnd(win: &WebviewWindow) -> Result<*mut std::ffi::c_void, String> {
+pub(crate) fn win32_hwnd(win: &WebviewWindow) -> Result<*mut std::ffi::c_void, String> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     let handle = win.window_handle().map_err(|e| e.to_string())?;
     match handle.as_raw() {
@@ -68,7 +68,10 @@ pub fn open_settings_window(app: AppHandle, route: Option<String>) -> Result<(),
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
     // Suppression gates the window only; the tray refresh below still runs.
-    let target = match crate::bridge::compact_suppressed(&app) {
+    // The sign is exempt: the user asked for it, so the host cannot hide it.
+    let target = match crate::bridge::compact_suppressed(&app)
+        && !crate::ipc::focus_sign::sign_active(&app)
+    {
         true => None,
         false => app.get_webview_window("main"),
     };
@@ -125,6 +128,11 @@ pub fn save_window_size(app: AppHandle, state: State<'_, SettingsState>) -> Resu
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
+    // The sign is not a corner size, whatever the 90% guard below would say for
+    // a short or narrow strip.
+    if crate::ipc::focus_sign::sign_active(&app) {
+        return Ok(());
+    }
     let size = win.outer_size().map_err(|e| e.to_string())?;
     // Guard: never persist a fullscreen/maximized size as the saved corner size.
     // The frontend resize debounce that calls this can fire AFTER a rapid phase
@@ -172,6 +180,11 @@ pub fn get_corner_position(app: AppHandle) -> Result<(i32, i32), String> {
 
 #[tauri::command]
 pub fn set_window_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
+    // Return-to-corner fires on every move, including a sign drag; it must not
+    // pull the sign back to the corner anchor.
+    if crate::ipc::focus_sign::sign_active(&app) {
+        return Ok(());
+    }
     let win = app
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
@@ -191,6 +204,9 @@ pub fn set_window_fullscreen(app: AppHandle, fullscreen: bool) -> Result<(), Str
         .get_webview_window("main")
         .ok_or_else(|| "no main window".to_string())?;
     if fullscreen {
+        // Leaves the sign (if up) and puts the window back on the corner's monitor
+        // first, so the break opens on the overlay's monitor and not the sign's.
+        crate::ipc::focus_sign::hand_off_to_fullscreen(&app, &win);
         let monitor = win
             .current_monitor()
             .map_err(|e| e.to_string())?

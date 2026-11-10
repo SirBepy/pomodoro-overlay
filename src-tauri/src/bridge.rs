@@ -155,7 +155,8 @@ fn dispatch_command(app: &AppHandle, line: &str) {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { return };
     let Some(cmd) = v.get("cmd").and_then(|c| c.as_str()) else { return };
     // Handled here, not forwarded: every show/hide site is Rust-side.
-    // `suppress_fullscreen` is ignored outright, nothing may hide the break view.
+    // `suppress_fullscreen` is ignored outright, nothing may hide the break view
+    // or the focus sign.
     if cmd == "host_overlay" {
         let on = v.get("suppress_compact").and_then(|s| s.as_bool()).unwrap_or(false);
         set_compact_suppression(app, on);
@@ -166,17 +167,22 @@ fn dispatch_command(app: &AppHandle, line: &str) {
 }
 
 /// True while a connected widget host owns the compact surface. Every site that
-/// would show the corner window checks this; the fullscreen path never does.
+/// would show the corner window checks this; the fullscreen and focus-sign paths
+/// never do.
 pub(crate) fn compact_suppressed(app: &AppHandle) -> bool {
     app.try_state::<HostSuppressionState>()
         .and_then(|s| s.0.lock().ok().map(|g| g.is_some()))
         .unwrap_or(false)
 }
 
-fn is_fullscreen(app: &AppHandle) -> bool {
-    app.try_state::<FullscreenState>()
+/// True while the break view or the focus sign has the window: both are surfaces
+/// the user asked for, so suppression must neither hide nor re-show them.
+fn owns_screen(app: &AppHandle) -> bool {
+    let fullscreen = app
+        .try_state::<FullscreenState>()
         .and_then(|s| s.0.lock().ok().map(|g| *g))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    fullscreen || crate::ipc::focus_sign::sign_active(app)
 }
 
 /// Applies the host's `suppress_compact`. Idempotent: the host resends the same
@@ -184,7 +190,7 @@ fn is_fullscreen(app: &AppHandle) -> bool {
 pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
     // Resolved before the suppression lock is taken, so the two are never held
     // at once and no lock order exists to get wrong.
-    let fullscreen = is_fullscreen(app);
+    let owned = owns_screen(app);
     let Some(win) = app.get_webview_window("main") else { return };
     let Some(state) = app.try_state::<HostSuppressionState>() else { return };
     let Ok(mut guard) = state.0.lock() else { return };
@@ -193,12 +199,12 @@ pub(crate) fn set_compact_suppression(app: &AppHandle, on: bool) {
             *guard = Some(win.is_visible().unwrap_or(true));
             // Deliberately not toggle_main_visibility's path: that dims the tray
             // icon, and being hosted elsewhere is not the user hiding the app.
-            if !fullscreen {
+            if !owned {
                 crate::ipc::window::hide_main(&win);
             }
         }
         (false, true) => {
-            if guard.take().unwrap_or(true) && !fullscreen {
+            if guard.take().unwrap_or(true) && !owned {
                 let _ = win.show();
             }
         }

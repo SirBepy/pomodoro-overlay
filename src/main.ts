@@ -14,6 +14,13 @@ import {
   startSnooze,
 } from "./shared/fullscreen";
 import {
+  initFocusSign,
+  evaluateSign,
+  handOffSignToFullscreen,
+  settleSignAfterFullscreen,
+  setupSignDrag,
+} from "./shared/focus-sign";
+import {
   setupReturnToCorner,
   clearReturnCornerTimer,
   getReturnCornerTimer,
@@ -88,6 +95,7 @@ const sm = new TimerStateMachine({
   applyPhaseClass: () => applyPhaseClass(),
   syncClickThrough: () => syncClickThrough(),
   reportState: () => reportState(),
+  prepareFullscreenBreak: handOffSignToFullscreen,
 });
 
 // Widget bridge: push the current snapshot to the Rust-side cache on every
@@ -198,6 +206,7 @@ function render() {
   $("app").classList.toggle("is-paused", !sm.running);
   renderSnoozeButton();
   applyVisibility();
+  evaluateSign();
   saveState();
 }
 
@@ -279,7 +288,19 @@ async function init() {
     getRunning: () => sm.running,
     getPhase: () => sm.phase,
   }));
+  initFocusSign({
+    getSettings: () => settings,
+    getPhase: () => sm.phase,
+    getRunning: () => sm.running,
+    isFullscreen: () => fsState.isOverlayFullscreen,
+    getTodayTotalMs: () => totalTodayMs(todayEvents, Date.now()),
+    refreshClickThrough: () => {
+      applyVisibility();
+      syncClickThrough();
+    },
+  });
   initFullscreen({
+    onFullscreenEnter: settleSignAfterFullscreen,
     getSettings: () => settings,
     getPhase: () => sm.phase,
     setPhase: (p) => { sm.phase = p; },
@@ -293,6 +314,9 @@ async function init() {
     refreshClickThrough: () => {
       applyVisibility();
       syncClickThrough();
+      // Runs after exitOverlayFullscreen's resize_and_anchor, so a sign that
+      // should be back up is placed against the restored corner.
+      evaluateSign();
     },
   });
   applyPhaseClass();
@@ -352,6 +376,7 @@ async function init() {
   // Drive the wall-clock grace auto-revert (throttle/sleep-proof).
   setInterval(() => meetingPolicy?.tick(), 2000);
   await setupReturnToCorner(() => settings);
+  await setupSignDrag();
   await setupWindowEvents({
     getRunning: () => sm.running,
     pause: (endedBy) => sm.pause(endedBy),

@@ -39,7 +39,14 @@
         <button id="snooze" class="start-btn hidden">SNOOZE</button>
       </div>
     </div>
+    <!-- Focus sign: icon + .timer + .sign-meta, laid out per body[data-sign-layout];
+         hidden unless body.is-focus-sign. -->
+    <i class="sign-icon ph-fill ph-brain"></i>
     <div class="timer">25:00</div>
+    <div class="sign-meta">
+      <span class="sign-dot"></span>
+      <span class="sign-label"></span>
+    </div>
     <div class="elapsed-line hoverable"></div>
   </div>
 

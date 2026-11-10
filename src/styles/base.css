@@ -220,6 +220,122 @@ select {
   }
 }
 
+/* ── Focus sign (edge bar / corner box) ──
+   The window is resized by Rust; this restyles the one #app into it.
+   Busy red regardless of phase: the stopwatch green would read as "available".
+   Specificity (1,1,1) beats the .phase-* custom-property rules. */
+
+.sign-icon,
+.sign-meta {
+  display: none;
+}
+
+/* Draggable only while the click-through modifier is held: otherwise the whole
+   window ignores the mouse. */
+body.is-focus-sign {
+  -webkit-app-region: drag;
+}
+
+body.is-focus-sign .resize-handle,
+body.is-focus-sign .button-wrapper,
+body.is-focus-sign .elapsed-line {
+  display: none;
+}
+
+body.is-focus-sign #app {
+  --bg: #ba4949;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.is-focus-sign .sign-icon {
+  display: block;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+body.is-focus-sign .sign-meta {
+  display: flex;
+  align-items: center;
+}
+
+body.is-focus-sign .sign-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+body.is-focus-sign .sign-label {
+  font-weight: 600;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* #app in the selector outranks the small-window media rules above, which
+   would otherwise shrink or shift the digits on a 100-200px strip. */
+body.is-focus-sign #app .timer {
+  position: static;
+  transform: none;
+  font-weight: 800;
+}
+
+/* Top/bottom bar: one centered row, icon - time - dot - label. */
+body[data-sign-layout="bar-h"] #app {
+  gap: 4.5vh;
+}
+body[data-sign-layout="bar-h"] .sign-icon {
+  font-size: 40vh;
+}
+body[data-sign-layout="bar-h"] #app .timer {
+  font-size: 52vh;
+}
+body[data-sign-layout="bar-h"] .sign-meta {
+  gap: 4.5vh;
+  font-size: 20vh;
+}
+
+/* Left/right bar: narrow column, icon above the (still horizontal) time. No label. */
+body[data-sign-layout="bar-v"] #app {
+  flex-direction: column;
+  gap: 2vw;
+}
+body[data-sign-layout="bar-v"] .sign-icon {
+  font-size: 26vw;
+}
+body[data-sign-layout="bar-v"] #app .timer {
+  font-size: 19vw;
+}
+body[data-sign-layout="bar-v"] .sign-meta {
+  display: none;
+}
+
+/* Corner box: the overlay's own card look, icon pinned top-left, label under the time. */
+body[data-sign-layout="box"] #app {
+  flex-direction: column;
+  gap: 2vh;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+body[data-sign-layout="box"] .sign-icon {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-size: 18px;
+}
+body[data-sign-layout="box"] #app .timer {
+  font-size: min(36vh, 15vw);
+}
+body[data-sign-layout="box"] .sign-meta {
+  gap: 8px;
+  font-size: 13px;
+}
+
 /* ── Bottom bar ── */
 
 .bottom-bar {

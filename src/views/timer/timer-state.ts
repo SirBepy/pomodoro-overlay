@@ -59,6 +59,8 @@ export interface TimerDeps {
   syncClickThrough: () => void;
   /** Widget bridge: reports the current snapshot to the Rust-side cache. */
   reportState?: () => void;
+  /** Runs just before a focus session hands over to the fullscreen break. */
+  prepareFullscreenBreak?: () => void;
 }
 
 export class TimerStateMachine {
@@ -290,10 +292,15 @@ export class TimerStateMachine {
     } else {
       next = PHASE_WORK;
     }
+    const goesFullscreen =
+      ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active;
+    // Before the phase flips: the re-render below would otherwise take the focus
+    // sign down and restore the corner, flashing it before the break opens.
+    if (goesFullscreen) this.deps.prepareFullscreenBreak?.();
     this.setPhaseInternal(next);
     this.deps.invoke("show_main_window").catch(() => {});
 
-    if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active) {
+    if (goesFullscreen) {
       await this.deps.enterOverlayFullscreen();
       if (settings.auto_start_break) await this.start();
     } else {

@@ -45,6 +45,12 @@ pub struct Settings {
     pub keybind_meeting_toggle: Option<String>,
     pub meeting_end_action: String,
     pub meeting_break_fullscreen: bool,
+    pub focus_sign_enabled: bool,
+    pub focus_sign_monitor: String,
+    pub focus_sign_edge: String,
+    pub focus_sign_size: String,
+    pub focus_sign_form: String,
+    pub focus_sign_corner: String,
     #[serde(flatten)]
     pub kit: KitSettings,
 }
@@ -92,6 +98,12 @@ impl Default for Settings {
             keybind_meeting_toggle: None,
             meeting_end_action: "break".to_string(),
             meeting_break_fullscreen: true,
+            focus_sign_enabled: false,
+            focus_sign_monitor: "secondary".to_string(),
+            focus_sign_edge: "top".to_string(),
+            focus_sign_size: "medium".to_string(),
+            focus_sign_form: "bar".to_string(),
+            focus_sign_corner: "tl".to_string(),
             kit: KitSettings::default(),
         }
     }

@@ -1,9 +1,16 @@
 use crate::settings::{self, SettingsState};
-use crate::state::{DndState, FullscreenState, HostSuppressionState, PausedSessionsState};
+use crate::state::{
+    DndState, FullscreenState, HostSuppressionState, PausedSessionsState, SignSavedGeometry,
+    SignState,
+};
 use crate::stats::{self, StatsState};
 use crate::{apply_autostart, bridge, hotkeys, resize_and_anchor, tray};
 use std::sync::Mutex;
 use tauri::{App, AppHandle, Manager, PhysicalSize};
+
+/// The corner window's minimum size; the focus sign lifts it while up (a narrow
+/// side bar is below it) and puts it back after.
+pub(crate) const MIN_WINDOW_SIZE: (u32, u32) = (200, 100);
 
 pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
@@ -45,7 +52,7 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         let (w, h) = settings.expanded_size();
         let _ = resize_and_anchor(&win, &settings, w, h);
         let _ = win.set_always_on_top(settings.always_on_top);
-        let _ = win.set_min_size(Some(PhysicalSize::new(200u32, 100u32)));
+        let _ = win.set_min_size(Some(PhysicalSize::new(MIN_WINDOW_SIZE.0, MIN_WINDOW_SIZE.1)));
         let _ = win.show();
         let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
     }
@@ -55,6 +62,8 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     handle.manage(StatsState(std::sync::Mutex::new(stats::load(&handle))));
     handle.manage(HostSuppressionState(std::sync::Mutex::new(None)));
     handle.manage(FullscreenState(std::sync::Mutex::new(false)));
+    handle.manage(SignState(std::sync::Mutex::new(false)));
+    handle.manage(SignSavedGeometry(std::sync::Mutex::new(None)));
 
     let bridge_state = bridge::new_state();
     let bridge_tx = bridge_state.0.clone();

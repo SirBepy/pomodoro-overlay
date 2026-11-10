@@ -31,6 +31,8 @@ export function renderSnoozeButton() {
 export async function enterOverlayFullscreen() {
   fsState.isOverlayFullscreen = true;
   document.body.classList.add("is-fullscreen");
+  // Rust leaves the sign inside set_window_fullscreen; this only clears its styling.
+  _host?.onFullscreenEnter?.();
   await invoke("set_window_fullscreen", { fullscreen: true }).catch(() => {});
   if (_host?.getSettings()?.keep_awake_during_fullscreen) {
     invoke("enable_keep_awake").catch(() => {});
