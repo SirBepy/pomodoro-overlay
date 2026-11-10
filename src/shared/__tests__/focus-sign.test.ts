@@ -29,6 +29,18 @@ describe("advancePauseTracker", () => {
     expect(advancePauseTracker(ended, false, "work", 5001).pausedSince).toBeNull();
   });
 
+  it("grants no grace when a Focus run ends into an idle break, then the user skips back", () => {
+    const focus = advancePauseTracker(idle, true, "work", 1000);
+    const ended = advancePauseTracker(focus, false, "short", 5000);
+    expect(advancePauseTracker(ended, false, "work", 6000).pausedSince).toBeNull();
+  });
+
+  it("drops an earlier pause's grace once the phase leaves Focus and Stopwatch", () => {
+    const paused = { wasRunning: false, pausedSince: 5000 };
+    const onBreak = advancePauseTracker(paused, false, "short", 6000);
+    expect(advancePauseTracker(onBreak, false, "work", 7000).pausedSince).toBeNull();
+  });
+
   it("keeps the first pause time while the timer stays paused", () => {
     const paused = { wasRunning: false, pausedSince: 5000 };
     expect(advancePauseTracker(paused, false, "work", 9000)).toBe(paused);

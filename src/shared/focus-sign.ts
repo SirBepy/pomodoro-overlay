@@ -74,6 +74,11 @@ export function advancePauseTracker(
   if (running) {
     return { wasRunning: phase === PHASE_WORK || phase === PHASE_OTHER, pausedSince: null };
   }
+  // A pause seen in a break phase is a run that ended or was switched away
+  // from, and any grace left over from an earlier pause dies with the phase.
+  if (phase !== PHASE_WORK && phase !== PHASE_OTHER) {
+    return { wasRunning: false, pausedSince: null };
+  }
   if (prev.wasRunning) return { wasRunning: false, pausedSince: now };
   return prev;
 }
