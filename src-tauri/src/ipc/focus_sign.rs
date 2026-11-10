@@ -110,6 +110,9 @@ pub fn resolve_monitor(
     primary: Option<MonitorKey>,
     current: Option<MonitorKey>,
 ) -> Option<MonitorKey> {
+    // The overlay's monitor was recorded earlier; it may have been unplugged since.
+    let live = |k: Option<MonitorKey>| k.filter(|k| monitors.contains(k));
+    let (primary, current) = (live(primary), live(current));
     let picked = match mode {
         "primary" => primary.or(current),
         "secondary" => monitors
@@ -285,6 +288,9 @@ fn exit(app: &AppHandle, win: &WebviewWindow) -> Result<(), String> {
     let settings = app.state::<SettingsState>().0.lock().unwrap().clone();
     let (w, h) = settings.expanded_size();
     crate::resize_and_anchor(win, &settings, w, h).map_err(|e| e.to_string())?;
+    // The sign was placed topmost behind tao's back; toggling on first makes the
+    // set below a real change even when always_on_top is off.
+    let _ = win.set_always_on_top(true);
     let _ = win.set_always_on_top(settings.always_on_top);
     // Suppressed, the compact surface is the host's, so this returns to hidden
     // (same as leaving the fullscreen break). Also hidden if the user had hidden it.
@@ -495,6 +501,14 @@ mod tests {
     fn secondary_with_one_monitor_falls_back_to_overlay() {
         let got = resolve_monitor("secondary", &[PRIMARY], Some(PRIMARY), Some(PRIMARY));
         assert_eq!(got, Some(PRIMARY));
+    }
+
+    #[test]
+    fn an_unplugged_overlay_monitor_falls_back_to_a_live_one() {
+        for mode in ["overlay", "primary", "secondary"] {
+            let got = resolve_monitor(mode, &[SECOND], Some(PRIMARY), Some(PRIMARY));
+            assert_eq!(got, Some(SECOND), "{mode}");
+        }
     }
 
     #[test]

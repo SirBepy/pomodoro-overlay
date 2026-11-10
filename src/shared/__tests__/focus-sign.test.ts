@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   shouldShowSign,
+  advancePauseTracker,
   signLayout,
   signLabel,
   formatTotalHM,
@@ -8,6 +9,31 @@ import {
 } from "../focus-sign";
 
 const ON = { focus_sign_enabled: true };
+
+describe("advancePauseTracker", () => {
+  const idle = { wasRunning: false, pausedSince: null };
+
+  it("starts the grace when a Focus or Stopwatch run pauses", () => {
+    for (const phase of ["work", "other"]) {
+      const running = advancePauseTracker(idle, true, phase, 1000);
+      expect(advancePauseTracker(running, false, phase, 5000), phase).toEqual({
+        wasRunning: false,
+        pausedSince: 5000,
+      });
+    }
+  });
+
+  it("grants no grace when a break ends into an idle Focus", () => {
+    const onBreak = advancePauseTracker(idle, true, "short", 1000);
+    const ended = advancePauseTracker(onBreak, false, "short", 5000);
+    expect(advancePauseTracker(ended, false, "work", 5001).pausedSince).toBeNull();
+  });
+
+  it("keeps the first pause time while the timer stays paused", () => {
+    const paused = { wasRunning: false, pausedSince: 5000 };
+    expect(advancePauseTracker(paused, false, "work", 9000)).toBe(paused);
+  });
+});
 
 describe("signLayout", () => {
   it("rows for top/bottom bars, columns for side bars, card for the box", () => {

@@ -54,6 +54,30 @@ export function signLabel(phase: string, todayTotalMs: number): string {
   return phase === PHASE_OTHER ? `total ${formatTotalHM(todayTotalMs)}` : "focusing";
 }
 
+export interface PauseTracker {
+  wasRunning: boolean;
+  /** null = no grace to honor (never ran, or ran outside a sign phase). */
+  pausedSince: number | null;
+}
+
+/**
+ * Starts the pause grace only when the timer was running in a phase the sign
+ * covers. Otherwise a break ending into an idle Focus (auto-start off) would
+ * show the sign for the grace on a timer that never started.
+ */
+export function advancePauseTracker(
+  prev: PauseTracker,
+  running: boolean,
+  phase: string,
+  now: number,
+): PauseTracker {
+  if (running) {
+    return { wasRunning: phase === PHASE_WORK || phase === PHASE_OTHER, pausedSince: null };
+  }
+  if (prev.wasRunning) return { wasRunning: false, pausedSince: now };
+  return prev;
+}
+
 interface FocusSignHost {
   getSettings: () => any;
   getPhase: () => string;
@@ -67,9 +91,7 @@ interface FocusSignHost {
 }
 
 let _host: FocusSignHost | null = null;
-let wasRunning = false;
-// null = the timer has not run since launch, so there is no grace to honor.
-let pausedSince: number | null = null;
+let tracker: PauseTracker = { wasRunning: false, pausedSince: null };
 let graceTimer: ReturnType<typeof setTimeout> | null = null;
 // Serializes the window commands so a quick on/off/on lands in order.
 let chain: Promise<void> = Promise.resolve();
@@ -117,9 +139,15 @@ function placeSign(phase: string, layout: SignLayout) {
     // A newer evaluation already dropped the sign (e.g. fullscreen took over).
     if (!signState.active) return;
     if (!(await invokeSign(true))) {
-      // Rust rolled back to the corner; forget the sign so the next render retries.
+      // A failed re-place can leave Rust's sign up; exit is a no-op when it is
+      // not, so this always ends in the corner. Forgetting the key lets the next
+      // render retry.
       signState.active = false;
       signState.key = "";
+      await invokeSign(false);
+      document.body.classList.remove(SIGN_CLASS);
+      delete document.body.dataset.signLayout;
+      _host?.refreshClickThrough();
       return;
     }
     // Styled only once the window has its new shape, so the old layout never
@@ -154,13 +182,8 @@ export function evaluateSign() {
   const running = _host.getRunning();
   const phase = _host.getPhase();
 
-  if (running) {
-    wasRunning = true;
-    pausedSince = null;
-  } else if (wasRunning) {
-    wasRunning = false;
-    pausedSince = now;
-  }
+  tracker = advancePauseTracker(tracker, running, phase, now);
+  const { pausedSince } = tracker;
   const pausedMs = running ? 0 : pausedSince === null ? Infinity : now - pausedSince;
 
   const want = shouldShowSign(phase, running, _host.isFullscreen(), settings, pausedMs);
