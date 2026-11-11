@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtDuration, fmt12, fmtHoursMinutes, fmtMinutes } from "../fmt";
+import { fmtDuration, fmt12, fmtHoursMinutes, fmtMinutes, splitHm, fmtHourShort } from "../fmt";
 
 describe("fmtDuration", () => {
   it("shows minutes only when under 1h", () => {
@@ -44,6 +44,23 @@ describe("fmtHoursMinutes", () => {
 
   it("shows hours and minutes at 1h+", () => {
     expect(fmtHoursMinutes(65 * 60_000)).toBe("1h 5m");
+  });
+});
+
+describe("splitHm", () => {
+  it("floors to whole minutes and carries them into hours", () => {
+    expect(splitHm(65 * 60_000 + 59_000)).toEqual({ h: 1, m: 5 });
+    expect(splitHm(45 * 60_000)).toEqual({ h: 0, m: 45 });
+    expect(splitHm(0)).toEqual({ h: 0, m: 0 });
+  });
+});
+
+describe("fmtHourShort", () => {
+  it("uses a/p with 12 for midnight and noon", () => {
+    expect(fmtHourShort(new Date("2024-01-01T00:00:00").getTime())).toBe("12a");
+    expect(fmtHourShort(new Date("2024-01-01T09:00:00").getTime())).toBe("9a");
+    expect(fmtHourShort(new Date("2024-01-01T12:00:00").getTime())).toBe("12p");
+    expect(fmtHourShort(new Date("2024-01-01T15:00:00").getTime())).toBe("3p");
   });
 });
 

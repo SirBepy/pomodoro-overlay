@@ -22,6 +22,24 @@ export function fmtDuration(ms: number): string {
   return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
 }
 
+// Whole hours and minutes (floored, like fmtHoursMinutes) for big-number readouts
+// that style the unit apart from the digits.
+export function splitHm(ms: number): { h: number; m: number } {
+  const total = Math.floor(ms / 60000);
+  return { h: Math.floor(total / 60), m: total % 60 };
+}
+
+// "Tue 10 Nov" (locale order) for the date pill, week chart and empty states.
+export function fmtDayShort(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+// "9a" / "12p" for the day-strip hour axis.
+export function fmtHourShort(ms: number): string {
+  const h = new Date(ms).getHours();
+  return `${h % 12 || 12}${h >= 12 ? "p" : "a"}`;
+}
+
 // "9:05 AM" / "12:30 PM" for timestamp labels.
 export function fmt12(ms: number): string {
   const d = new Date(ms);

@@ -17,7 +17,15 @@ export function startOfDay(ts: number): number {
 }
 
 export function endOfDay(ts: number): number {
-  return startOfDay(ts) + 24 * 60 * 60 * 1000;
+  // Calendar day, not +24h: a DST day is 23h or 25h long.
+  return addDays(startOfDay(ts), 1);
+}
+
+/** Local-calendar day shift; unlike `+ n * 86_400_000` it survives DST days. */
+export function addDays(dayStart: number, n: number): number {
+  const d = new Date(dayStart);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
 }
 
 /**
