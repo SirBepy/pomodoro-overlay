@@ -132,6 +132,17 @@ describe("TimerStateMachine", () => {
     expect(sm.running).toBe(false);
   });
 
+  it("a finished focus enters the fullscreen break only when fullscreen_on_break is on", async () => {
+    for (const [on, expected] of [[true, 1], [false, 0]] as const) {
+      const { sm, deps } = makeMachine({ fullscreen_on_break: on });
+      sm.phase = PHASE_WORK;
+      sm.remainingSec = 1;
+      await sm.start();
+      await sm.endPhase(true);
+      expect(deps.enterOverlayFullscreen).toHaveBeenCalledTimes(expected);
+    }
+  });
+
   it("(e) snoozing twice keeps the original pre-snooze phase; skip returns to it, not to another snooze", async () => {
     // Mirrors shared/fullscreen.ts's startSnooze(): pause, conditionally capture
     // the phase being left (never overwrite pendingBreakPhase with "snooze"
