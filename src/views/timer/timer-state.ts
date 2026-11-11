@@ -123,7 +123,7 @@ export class TimerStateMachine {
         this.deps.exitOverlayFullscreen();
       }
       await this.pendingMusicPause;
-      const pmob = settings?.pause_music_on_break;
+      const pmob = settings?.pause_music;
       if (pmob === "on_break" || pmob === "not_running_focused") {
         if (this.phase === PHASE_WORK && this.musicPausedByApp) {
           this.deps.invoke("media_resume").catch(() => {});
@@ -178,7 +178,7 @@ export class TimerStateMachine {
     }
     const settings = this.deps.getSettings();
     if (
-      settings?.pause_music_on_break === "not_running_focused" &&
+      settings?.pause_music === "not_running_focused" &&
       this.phase === PHASE_WORK &&
       !this.musicPausedByApp
     ) {
@@ -293,7 +293,7 @@ export class TimerStateMachine {
     this.setPhaseInternal(next);
     this.deps.invoke("show_main_window").catch(() => {});
 
-    if (ended === PHASE_WORK && settings.fullscreen_on_focus_end && !policy?.active) {
+    if (ended === PHASE_WORK && settings.fullscreen_on_break && !policy?.active) {
       await this.deps.enterOverlayFullscreen();
       if (settings.auto_start_break) await this.start();
     } else {

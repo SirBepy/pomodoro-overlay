@@ -14,7 +14,6 @@ pub struct Settings {
     pub width: u32,
     pub height: u32,
     pub idle_opacity: f32,
-    pub auto_collapse: bool,
     pub sound_enabled: bool,
     pub sound_path: Option<String>,
     pub volume: f32,
@@ -27,9 +26,9 @@ pub struct Settings {
     pub reset_on_restart: bool,
     pub editable_when_paused: bool,
     pub ltr_time_entry: bool,
-    pub fullscreen_on_focus_end: bool,
+    pub fullscreen_on_break: bool,
     pub keep_awake_during_fullscreen: bool,
-    pub pause_music_on_break: String,
+    pub pause_music: String,
     pub dnd_on_focus: bool,
     pub click_through_modifier: String,
     pub keybind_pause: Option<String>,
@@ -39,7 +38,7 @@ pub struct Settings {
     pub idle_gap_cap_minutes: u32,
     pub stats_retention_days: u32,
     pub meeting_detection_enabled: bool,
-    pub meeting_hide_from_capture: bool,
+    pub hide_from_capture: bool,
     pub meeting_apps: String,
     pub meeting_browsers: String,
     pub keybind_meeting_toggle: Option<String>,
@@ -68,7 +67,6 @@ impl Default for Settings {
             width: 200,
             height: 160,
             idle_opacity: 0.3,
-            auto_collapse: true,
             sound_enabled: true,
             sound_path: None,
             volume: 0.7,
@@ -81,9 +79,9 @@ impl Default for Settings {
             reset_on_restart: false,
             editable_when_paused: false,
             ltr_time_entry: true,
-            fullscreen_on_focus_end: false,
+            fullscreen_on_break: false,
             keep_awake_during_fullscreen: true,
-            pause_music_on_break: "never".to_string(),
+            pause_music: "never".to_string(),
             dnd_on_focus: true,
             click_through_modifier: "alt".to_string(),
             keybind_pause: Some("Alt+Shift+2".to_string()),
@@ -93,12 +91,12 @@ impl Default for Settings {
             idle_gap_cap_minutes: 240,
             stats_retention_days: 30,
             meeting_detection_enabled: true,
-            meeting_hide_from_capture: true,
+            hide_from_capture: true,
             meeting_apps: tauri_kit_meeting::default_meeting_apps().join(", "),
             meeting_browsers: tauri_kit_meeting::default_browser_apps().join(", "),
             keybind_meeting_toggle: None,
             meeting_end_action: "break".to_string(),
-            meeting_break_fullscreen: true,
+            meeting_break_fullscreen: false,
             overlay_form: "box".to_string(),
             bar_monitor: "secondary".to_string(),
             bar_edge: "top".to_string(),
@@ -136,11 +134,85 @@ pub fn load(app: &AppHandle) -> Settings {
                         settings.auto_start_break = legacy;
                     }
                 }
+                migrate_renamed_keys(&mut settings, &raw);
             }
         }
     }
 
     settings
+}
+
+/// Carries values stored under a key's old name into the renamed field. The new
+/// key wins when both exist, and the old key is gone from disk on the next save
+/// because the struct no longer has it.
+fn migrate_renamed_keys(settings: &mut Settings, raw: &serde_json::Value) {
+    if raw.get("hide_from_capture").is_none() {
+        if let Some(v) = raw.get("meeting_hide_from_capture").and_then(|v| v.as_bool()) {
+            settings.hide_from_capture = v;
+        }
+    }
+    if raw.get("fullscreen_on_break").is_none() {
+        if let Some(v) = raw.get("fullscreen_on_focus_end").and_then(|v| v.as_bool()) {
+            settings.fullscreen_on_break = v;
+        }
+    }
+    if raw.get("pause_music").is_none() {
+        if let Some(v) = raw.get("pause_music_on_break").and_then(|v| v.as_str()) {
+            settings.pause_music = v.to_string();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn hide_from_capture_carries_old_key() {
+        let mut s = Settings::default();
+        migrate_renamed_keys(&mut s, &json!({ "meeting_hide_from_capture": false }));
+        assert!(!s.hide_from_capture);
+    }
+
+    #[test]
+    fn fullscreen_on_break_carries_old_key() {
+        let mut s = Settings::default();
+        migrate_renamed_keys(&mut s, &json!({ "fullscreen_on_focus_end": true }));
+        assert!(s.fullscreen_on_break);
+    }
+
+    #[test]
+    fn pause_music_carries_old_key() {
+        let mut s = Settings::default();
+        migrate_renamed_keys(&mut s, &json!({ "pause_music_on_break": "on_break" }));
+        assert_eq!(s.pause_music, "on_break");
+    }
+
+    #[test]
+    fn new_key_present_beats_old_key() {
+        let mut s = Settings::default();
+        s.pause_music = "never".into();
+        migrate_renamed_keys(
+            &mut s,
+            &json!({ "pause_music": "never", "pause_music_on_break": "on_break" }),
+        );
+        assert_eq!(s.pause_music, "never");
+    }
+
+    #[test]
+    fn no_old_keys_leaves_defaults() {
+        let mut s = Settings::default();
+        migrate_renamed_keys(&mut s, &json!({}));
+        assert!(s.hide_from_capture);
+        assert!(!s.fullscreen_on_break);
+        assert_eq!(s.pause_music, "never");
+    }
+
+    #[test]
+    fn meeting_break_fullscreen_defaults_off() {
+        assert!(!Settings::default().meeting_break_fullscreen);
+    }
 }
 
 pub fn persist(app: &AppHandle, settings: &Settings) -> Result<(), String> {

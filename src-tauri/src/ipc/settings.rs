@@ -52,7 +52,7 @@ pub fn save_settings(
     crate::bridge::reconcile_suppression(&app);
     apply_autostart(&app, settings.autostart);
     if let Some(win) = app.get_webview_window("main") {
-        let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
+        let _ = tauri_kit_window::exclude_from_capture(&win, settings.hide_from_capture);
     }
     tauri_kit_meeting::set_apps(
         &app,

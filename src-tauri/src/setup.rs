@@ -72,7 +72,7 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         let _ = win.set_always_on_top(settings.always_on_top);
         apply_box_min_size(&win);
         let _ = win.show();
-        let _ = tauri_kit_window::exclude_from_capture(&win, settings.meeting_hide_from_capture);
+        let _ = tauri_kit_window::exclude_from_capture(&win, settings.hide_from_capture);
     }
     handle.manage(SettingsState(Mutex::new(settings)));
     handle.manage(PausedSessionsState(std::sync::Mutex::new(Vec::new())));

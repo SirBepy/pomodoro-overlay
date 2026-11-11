@@ -24,7 +24,7 @@ export function renderSnoozeButton() {
   const settings = _host.getSettings();
   const phase = _host.getPhase();
   const showSnooze =
-    settings?.fullscreen_on_focus_end &&
+    settings?.fullscreen_on_break &&
     fsState.isOverlayFullscreen &&
     (phase === "short" || phase === "long");
   btn.classList.toggle("visible", showSnooze);

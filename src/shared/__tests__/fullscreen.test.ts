@@ -38,7 +38,7 @@ describe("enterOverlayFullscreen", () => {
   });
 
   it("never goes fullscreen in the bar form, whichever path asks", async () => {
-    init({ overlay_form: "bar", fullscreen_on_focus_end: true, meeting_break_fullscreen: true });
+    init({ overlay_form: "bar", fullscreen_on_break: true, meeting_break_fullscreen: true });
     await enterOverlayFullscreen();
     expect(invoke).not.toHaveBeenCalled();
     expect(fsState.isOverlayFullscreen).toBe(false);

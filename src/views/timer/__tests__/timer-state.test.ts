@@ -30,8 +30,8 @@ function makeMachine(settingsOverrides: Record<string, unknown> = {}) {
     auto_start_break: false,
     auto_start_work: false,
     sessions_before_long_break: 4,
-    fullscreen_on_focus_end: false,
-    pause_music_on_break: "never",
+    fullscreen_on_break: false,
+    pause_music: "never",
     dnd_on_focus: false,
     ...settingsOverrides,
   };
@@ -179,7 +179,7 @@ describe("TimerStateMachine", () => {
       deps.invoke.mock.calls.filter(([c]) => c === cmd).length;
 
     it("resumes music when focus is restarted before the pause call lands", async () => {
-      const { sm, deps } = makeMachine({ pause_music_on_break: "not_running_focused" });
+      const { sm, deps } = makeMachine({ pause_music: "not_running_focused" });
       await sm.start();
       const finishPause = holdMusicPause(deps);
       sm.pause();
@@ -192,7 +192,7 @@ describe("TimerStateMachine", () => {
 
     it("an auto-started break does not re-pause (and wipe) what the focus end just paused", async () => {
       const { sm, deps } = makeMachine({
-        pause_music_on_break: "not_running_focused",
+        pause_music: "not_running_focused",
         auto_start_break: true,
       });
       sm.remainingSec = 1;

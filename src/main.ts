@@ -229,7 +229,7 @@ function addButtonSounds(btn) {
 }
 
 function snooze() {
-  if (settings?.pause_music_on_break !== "never" && sm.musicPausedByApp) {
+  if (settings?.pause_music !== "never" && sm.musicPausedByApp) {
     invoke("media_resume").catch(() => {});
     sm.musicPausedByApp = false;
   }
