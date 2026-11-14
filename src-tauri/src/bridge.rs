@@ -61,7 +61,7 @@ fn write_discovery_file(app: &AppHandle, port: u16, token: &str) -> Result<(), S
 }
 
 /// Binds an OS-assigned loopback port, writes the discovery file, then accepts
-/// clients forever. Spawned once from lib.rs setup via tauri::async_runtime::spawn.
+/// clients forever. Spawned once from setup::setup via tauri::async_runtime::spawn.
 pub async fn run_server(app: AppHandle, tx: watch::Sender<Option<TimerStateSnapshot>>, token: String) {
     let listener = match TcpListener::bind("127.0.0.1:0").await {
         Ok(l) => l,

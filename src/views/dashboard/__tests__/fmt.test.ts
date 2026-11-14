@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtDuration, fmt12, fmtHoursMinutes, fmtMinutes, splitHm, fmtHourShort } from "../fmt";
+import { fmtDuration, fmt12, fmtHoursMinutes, splitHm, fmtHourShort } from "../fmt";
 
 describe("fmtDuration", () => {
   it("shows minutes only when under 1h", () => {
@@ -61,12 +61,5 @@ describe("fmtHourShort", () => {
     expect(fmtHourShort(new Date("2024-01-01T09:00:00").getTime())).toBe("9a");
     expect(fmtHourShort(new Date("2024-01-01T12:00:00").getTime())).toBe("12p");
     expect(fmtHourShort(new Date("2024-01-01T15:00:00").getTime())).toBe("3p");
-  });
-});
-
-describe("fmtMinutes", () => {
-  it("rounds and appends min", () => {
-    expect(fmtMinutes(5 * 60_000)).toBe("5 min");
-    expect(fmtMinutes(90_000)).toBe("2 min");
   });
 });

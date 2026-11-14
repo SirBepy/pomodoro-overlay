@@ -12,8 +12,6 @@ export const PHASE_COLORS = {
   idle: "#f5a623",   // gap time (no overlay phase)
 };
 
-export const IDLE_COLOR = PHASE_COLORS.idle;
-
 export type ColorKey = keyof typeof PHASE_COLORS;
 
 // Phase colors alone fail the colorblind and contrast checks (short vs long

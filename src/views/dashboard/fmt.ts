@@ -9,12 +9,6 @@ export function fmtHoursMinutes(ms: number): string {
   return `${h}h ${m}m`;
 }
 
-// "5 min" for idle-style readouts.
-export function fmtMinutes(ms: number): string {
-  const m = Math.round(ms / 60000);
-  return `${m} min`;
-}
-
 // "25m" / "1h 5m" for segment/session duration readouts.
 export function fmtDuration(ms: number): string {
   const totalMin = Math.round(ms / 60_000);
